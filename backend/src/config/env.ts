@@ -4,7 +4,6 @@ import { z } from 'zod';
 const integer = (fallback: number, max: number) => z.coerce.number().int().positive().max(max).default(fallback);
 const schema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
-  HOST: z.string().min(1).default('127.0.0.1'),
   PORT: integer(4000, 65535),
   DATABASE_URL: z.string().default('').refine((value) => {
     if (!value) return true;

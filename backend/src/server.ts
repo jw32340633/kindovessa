@@ -8,8 +8,8 @@ const server = createServer(createApp());
 server.requestTimeout = 30000;
 server.headersTimeout = 15000;
 server.keepAliveTimeout = 5000;
-server.listen(env.PORT, env.HOST, () => {
-  logger.info({ host: env.HOST, port: env.PORT }, 'API listening');
+server.listen(env.PORT, () => {
+  logger.info({ port: env.PORT }, 'API listening');
   if (!pool) logger.warn('DATABASE_URL is empty; database readiness will return 503');
 });
 
@@ -30,7 +30,7 @@ function shutdown(exitCode: number) {
 process.on('SIGINT', () => shutdown(0));
 process.on('SIGTERM', () => shutdown(0));
 server.on('error', (error: NodeJS.ErrnoException) => {
-  logger.fatal({ code: error.code, host: env.HOST, port: env.PORT },
+  logger.fatal({ code: error.code, port: env.PORT },
     error.code === 'EADDRINUSE'
       ? 'Port is already in use. Stop the other API process before restarting.'
       : 'HTTP server failed to listen');
