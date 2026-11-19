@@ -29,6 +29,12 @@ function shutdown(exitCode: number) {
 }
 process.on('SIGINT', () => shutdown(0));
 process.on('SIGTERM', () => shutdown(0));
-server.on('error', () => { logger.fatal('HTTP server failed'); shutdown(1); });
+server.on('error', (error: NodeJS.ErrnoException) => {
+  logger.fatal({ code: error.code, host: env.HOST, port: env.PORT },
+    error.code === 'EADDRINUSE'
+      ? 'Port is already in use. Stop the other API process before restarting.'
+      : 'HTTP server failed to listen');
+  shutdown(1);
+});
 process.on('uncaughtException', () => { logger.fatal('Uncaught exception; shutting down'); shutdown(1); });
 process.on('unhandledRejection', () => { logger.fatal('Unhandled rejection; shutting down'); shutdown(1); });
