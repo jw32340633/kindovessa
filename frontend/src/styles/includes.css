@@ -1,0 +1,43 @@
+@reference "./globals.css";
+
+@layer components {
+  .page-layout {
+    @apply mx-auto w-full max-w-360 px-4 sm:px-6 lg:px-8 xl:px-10;
+  }
+
+  .content-layout {
+    @apply mx-auto w-full max-w-7xl;
+  }
+
+  .narrow-layout {
+    @apply mx-auto w-full max-w-3xl;
+  }
+
+  .section {
+    padding-block: var(--section-space);
+  }
+}
+
+.hero-progress {
+  animation: hero-progress 9s linear forwards;
+}
+
+.hero-carousel:focus-within .hero-progress {
+  animation-play-state: paused;
+}
+
+.hero-shade {
+  background: linear-gradient(to top, rgb(24 18 13 / 96%) 0%, rgb(24 18 13 / 87%) 25%, rgb(24 18 13 / 35%) 48%, transparent 70%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-progress {
+    animation: none;
+  }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .hero-carousel:hover .hero-progress {
+    animation-play-state: paused;
+  }
+}

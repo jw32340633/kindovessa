@@ -1,0 +1,180 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@theme inline {
+  --font-heading: var(--font-dm-sans);
+  --font-heading-02: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-body: var(--font-manrope);
+
+  --color-background: var(--background);
+
+  --color-heading: var(--heading);
+  --color-sub-heading: var(--sub-heading);
+  --color-foreground: var(--foreground);
+
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-foreground: var(--primary-foreground);
+
+  --color-muted: var(--muted);
+  --color-muted-hover: var(--muted-hover);
+  --color-muted-foreground: var(--muted-foreground);
+
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-foreground: var(--accent-foreground);
+
+  --color-destructive: var(--destructive);
+  --color-destructive-hover: var(--destructive-hover);
+  --color-destructive-foreground: var(--destructive-foreground);
+
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+:root {
+  --background: oklch(0.9603 0.0136 78.26);
+
+  --heading: oklch(0.22 0.008 70);
+  --sub-heading: oklch(0.34 0.009 70);
+  --foreground: oklch(0.29 0.008 70);
+
+  --card: oklch(0.929 0.0177 73.07);
+  --card-foreground: var(--foreground);
+
+  --popover: var(--card);
+  --popover-foreground: var(--foreground);
+
+  --primary: oklch(0.5678 0.1798 258.86);
+  --primary-hover: oklch(0.49 0.17 258.86);
+  --primary-foreground: oklch(1 0 0);
+
+  --muted: oklch(0.915 0.012 78);
+  --muted-hover: oklch(0.875 0.015 78);
+  --muted-foreground: oklch(0.39 0.01 70);
+
+  --accent: oklch(0.438 0.0563 166.35);
+  --accent-hover: oklch(0.37 0.052 166.35);
+  --accent-foreground: var(--primary-foreground);
+
+  --destructive: oklch(0.55 0.19 25);
+  --destructive-hover: oklch(0.49 0.19 25);
+  --destructive-foreground: var(--primary-foreground);
+
+  --border: oklch(0.83 0.013 75);
+  --input: oklch(0.985 0.004 78);
+  --ring: var(--primary);
+
+  --radius: 0.625rem;
+  --section-gap: clamp(2.5rem, 5vw, 5rem);
+  --section-space: clamp(2rem, 3.5vw, 4rem);
+}
+
+@layer base {
+  *,
+  *::before,
+  *::after {
+    @apply box-border border-border;
+  }
+
+  html {
+    @apply antialiased;
+  }
+
+  body {
+    @apply min-h-screen bg-background font-body text-foreground;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    @apply font-heading tracking-tight text-heading;
+  }
+
+  p {
+    @apply leading-relaxed text-foreground;
+  }
+
+  p,
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    overflow-wrap: break-word;
+  }
+
+  a {
+    @apply transition-colors duration-200;
+  }
+
+  img,
+  picture,
+  video,
+  canvas,
+  svg {
+    @apply block max-w-full;
+  }
+
+  img,
+  video {
+    @apply h-auto;
+  }
+
+  button,
+  input,
+  textarea,
+  select {
+    font: inherit;
+  }
+
+  button,
+  [role="button"] {
+    @apply cursor-pointer;
+  }
+
+  button:disabled,
+  [aria-disabled="true"] {
+    @apply cursor-not-allowed;
+  }
+
+  :focus-visible {
+    @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background;
+  }
+
+  ::selection {
+    @apply bg-primary/30 text-foreground;
+  }
+}
+
+body {
+  position: relative;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-slot="drawer-overlay"],
+  [data-slot="drawer-popup"],
+  [data-slot="drawer-content"] {
+    transition-duration: 0ms !important;
+  }
+}

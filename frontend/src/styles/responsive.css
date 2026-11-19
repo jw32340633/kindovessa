@@ -1,0 +1,11 @@
+@media (min-width: 768px) {
+  .hero-shade {
+    background: linear-gradient(to right, rgb(24 18 13 / 78%) 0%, rgb(24 18 13 / 62%) 35%, rgb(24 18 13 / 12%) 65%, transparent 85%);
+  }
+}
+
+@media (min-width: 768px) and (max-height: 700px) {
+  .hero-carousel {
+    min-height: 32.5rem;
+  }
+}
