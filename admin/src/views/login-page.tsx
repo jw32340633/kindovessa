@@ -1,26 +1,30 @@
 "use client";
 
 import { useRef, useState, type FormEvent } from "react";
+import { useRouter } from "next/navigation";
+import toast from "react-hot-toast";
 import { ArrowRight, Eye, EyeOff, LockKeyhole } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Spinner } from "@/components/ui/spinner";
 import Logo from "../../public/favicons/logo";
 
 export default function LoginPage() {
+  const router = useRouter();
+  const [loading, setLoading] = useState(false);
   const [visible, setVisible] = useState(false);
   const [errors, setErrors] = useState<{
     username?: string;
     password?: string;
   }>({});
-  const [notice, setNotice] = useState("");
   const usernameRef = useRef<HTMLInputElement>(null);
   const passwordRef = useRef<HTMLInputElement>(null);
 
-  function submit(event: FormEvent<HTMLFormElement>) {
+  async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setNotice("");
+    if (loading) return;
     const data = new FormData(event.currentTarget);
     const next = {
       username: String(data.get("username") ?? "").trim()
@@ -33,10 +37,22 @@ export default function LoginPage() {
     setErrors(next);
     if (next.username) usernameRef.current?.focus();
     else if (next.password) passwordRef.current?.focus();
-    else
-      setNotice(
-        "Sign-in is not connected yet. Authentication will be available once the backend is connected.",
-      );
+    else {
+      const username = String(data.get("username") ?? "").trim();
+      if (!/^[a-z0-9_]{3,40}$/i.test(username)) { setErrors({ username: "Use 3-40 letters, numbers, or underscores." }); usernameRef.current?.focus(); return; }
+      setLoading(true);
+      try {
+        const response = await fetch('/api/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username, password: String(data.get('password') ?? '') }) });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error?.message ?? 'Unable to sign in.');
+        toast.success('Welcome back.');
+        router.replace('/dashboard'); router.refresh();
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Unable to sign in. Please try again.';
+        toast.error(message);
+        setLoading(false);
+      }
+    }
   }
 
   return (
@@ -76,13 +92,14 @@ export default function LoginPage() {
                   spellCheck={false}
                   required
                   placeholder="Enter your username"
+                  type="text"
+                  maxLength={40}
                   aria-invalid={!!errors.username}
                   aria-describedby={
                     errors.username ? "username-error" : undefined
                   }
                   onChange={() => {
                     setErrors((old) => ({ ...old, username: undefined }));
-                    setNotice("");
                   }}
                   className="h-12 bg-card px-3.5 text-base md:text-base"
                 />
@@ -113,7 +130,6 @@ export default function LoginPage() {
                     }
                     onChange={() => {
                       setErrors((old) => ({ ...old, password: undefined }));
-                      setNotice("");
                     }}
                     className="h-12 bg-card pr-12 pl-3.5 text-base md:text-base"
                   />
@@ -145,18 +161,12 @@ export default function LoginPage() {
               </div>
               <Button
                 type="submit"
+                disabled={loading}
+                aria-busy={loading}
                 className="h-12 w-full gap-2 text-sm font-semibold hover:bg-primary-hover"
               >
-                Sign in <ArrowRight className="size-4" aria-hidden="true" />
+                {loading ? <>Signing in <Spinner aria-hidden="true" /></> : <>Sign in <ArrowRight className="size-4" aria-hidden="true" /></>}
               </Button>
-              {notice && (
-                <p
-                  role="status"
-                  className="rounded-lg border border-border bg-muted p-3 text-sm"
-                >
-                  {notice}
-                </p>
-              )}
             </form>
           </CardContent>
         </Card>

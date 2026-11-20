@@ -3,6 +3,7 @@ export { viewport } from "@/configs/viewport";
 import { inter, geistMono } from "@/configs/fonts";
 
 import { TooltipProvider } from "@/components/ui/tooltip";
+import ToastProvider from "@/providers/toast-provider";
 
 import { cn } from "@/lib/utils";
 
@@ -24,6 +25,7 @@ export default function RootLayout({
         className="min-h-full w-full flex flex-col"
       >
         <TooltipProvider>{children}</TooltipProvider>
+        <ToastProvider />
       </body>
     </html>
   );

@@ -1,5 +1,6 @@
 "use client";
 
+import { useAuth } from "@/providers/auth-provider";
 import { Fragment } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -25,7 +26,7 @@ import { Separator } from "../ui/separator";
 import { SidebarTrigger } from "../ui/sidebar";
 
 function Header() {
-  const user = { firstName: "Alex", lastName: "Morgan" };
+  const { user, logout, loggingOut } = useAuth();
   const initials =
     `${user.firstName.charAt(0)}${user.lastName.charAt(0)}`.toUpperCase();
   const pathname = usePathname();
@@ -103,7 +104,7 @@ function Header() {
               aria-label={`Open account options for ${user.firstName} ${user.lastName}`}
             >
               <Avatar className="size-11">
-                <AvatarFallback className="bg-sidebar-accent font-semibold text-sidebar-accent-foreground">
+                <AvatarFallback className="bg-sidebar-accent border-3 border-primary font-semibold text-sidebar-accent-foreground">
                   {initials}
                 </AvatarFallback>
               </Avatar>
@@ -115,7 +116,7 @@ function Header() {
             >
               <PopoverTitle className="sr-only">Account options</PopoverTitle>
               <Button
-                type="button"
+                render={<Link href="/dashboard/settings" />}
                 variant="ghost"
                 className="h-11 w-full justify-start gap-3 px-3"
               >
@@ -126,10 +127,10 @@ function Header() {
               <Button
                 type="button"
                 variant="ghost"
-                className="h-11 w-full justify-start gap-3 px-3 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                onClick={() => void logout()} disabled={loggingOut} className="h-11 w-full justify-start gap-3 px-3 text-destructive hover:bg-destructive/10 hover:text-destructive"
               >
                 <LogOut aria-hidden="true" />
-                Logout
+                {loggingOut ? "Signing out..." : "Logout"}
               </Button>
             </PopoverContent>
           </Popover>

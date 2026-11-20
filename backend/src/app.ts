@@ -7,6 +7,8 @@ import { env } from './config/env.js';
 import { logger } from './lib/logger.js';
 import { errorHandler } from './middleware/error-handler.js';
 import { healthRouter } from './routes/health.js';
+import { authRouter } from './routes/auth.js';
+import { settingsRouter } from './routes/settings.js';
 
 export function createApp(options: { databaseCheck?: () => Promise<boolean>; rateLimitMax?: number } = {}) {
   const app = express();
@@ -34,6 +36,8 @@ export function createApp(options: { databaseCheck?: () => Promise<boolean>; rat
   app.use('/health', healthRouter(options.databaseCheck));
   app.use('/api', rateLimit({ windowMs: env.RATE_LIMIT_WINDOW_MS, limit: options.rateLimitMax ?? env.RATE_LIMIT_MAX, standardHeaders: 'draft-8', legacyHeaders: false, handler: (_request, response) => { response.status(429).json({ error: { code: 'RATE_LIMITED', message: 'Too many requests. Please try again later.', requestId: response.locals.requestId } }); } }));
   app.use(express.json({ limit: '32kb', strict: true }));
+  app.use('/api/v1/auth', authRouter);
+  app.use('/api/v1/auth/settings', settingsRouter);
   app.use((_request, response) => { response.status(404).json({ error: { code: 'NOT_FOUND', message: 'Route not found.', requestId: response.locals.requestId } }); });
   app.use(errorHandler);
   return app;
