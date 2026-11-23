@@ -53,6 +53,7 @@ function salesProduct(row: Record<string, unknown>) {
     name: String(row.name),
     brand: String(row.brand ?? ""),
     category: String(row.category),
+    imageUrl: typeof row.image_url === "string" ? row.image_url : null,
     price:
       row.price_cents === null
         ? ""
@@ -83,6 +84,7 @@ salesRouter.get("/", async (_request, response, next) => {
       `SELECT p.id, p.name, p.brand, p.category, p.price_cents, p.featured_product,
               p.discount_price_cents, p.discount_badge, p.is_discount_price, p.is_sale_tag,
               p.sale_tag, p.version, s.version AS storefront_version, c.slug AS collection_category,
+              (SELECT url FROM catalog_images WHERE product_id = p.id ORDER BY sort_order LIMIT 1) AS image_url,
               (SELECT COALESCE(json_agg(json_build_object('slug', slug, 'title', title) ORDER BY title), '[]'::json)
                FROM catalog_categories WHERE title IS NOT NULL) AS categories
        FROM storefront_settings s
@@ -260,7 +262,8 @@ salesRouter.put("/:id", async (request, response, next) => {
       `UPDATE catalog_products SET discount_price_cents = $1, discount_badge = $2,
        version = version + 1, updated_at = now() WHERE id = $3
        RETURNING id, name, brand, category, price_cents, featured_product, discount_price_cents,
-                 discount_badge, is_discount_price, is_sale_tag, sale_tag, version`,
+                 discount_badge, is_discount_price, is_sale_tag, sale_tag, version,
+                 (SELECT url FROM catalog_images WHERE product_id = catalog_products.id ORDER BY sort_order LIMIT 1) AS image_url`,
       [discountCents, parsed.data.discountBadge, id.data],
     );
     await client.query("COMMIT");

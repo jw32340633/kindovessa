@@ -5,16 +5,17 @@ import { Search, X, type LucideIcon } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { TableCell, TableRow } from "@/components/ui/table";
 
-export function CatalogTableSearch({ label, placeholder, value, disabled, onChange }: {
+export function CatalogTableSearch({ label, placeholder, value, disabled, fullWidth = false, onChange }: {
   label: string;
   placeholder: string;
   value: string;
   disabled: boolean;
+  fullWidth?: boolean;
   onChange: (value: string) => void;
 }) {
   const input = useRef<HTMLInputElement>(null);
   return (
-    <div className="relative w-full sm:ml-auto sm:max-w-sm">
+    <div className={fullWidth ? "relative w-full" : "relative w-full sm:ml-auto sm:max-w-sm"}>
       <Search className="pointer-events-none absolute top-3.5 left-3 size-4 text-muted-foreground" aria-hidden="true" />
       <Input ref={input} type="search" aria-label={label} placeholder={placeholder} value={value} disabled={disabled}
         onChange={(event) => onChange(event.target.value)}

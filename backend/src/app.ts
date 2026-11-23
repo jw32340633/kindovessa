@@ -11,7 +11,7 @@ import { authRouter } from "./routes/auth.js";
 import { settingsRouter } from "./routes/settings.js";
 import { uploadsRouter } from "./routes/uploads.js";
 import { catalogProductsRouter } from "./routes/products.js";
-import { catalogCategoriesRouter } from "./routes/catalog-categories.js";
+import { catalogCategoriesRouter, storefrontCategoriesRouter } from "./routes/catalog-categories.js";
 import { salesRouter } from "./routes/sales.js";
 
 export function createApp(
@@ -93,6 +93,7 @@ export function createApp(
     }),
   );
   app.use("/api/v1/uploads", uploadsRouter);
+  app.use("/api/v1/storefront/categories", storefrontCategoriesRouter);
   app.use("/api/v1/catalog/categories", express.json({ limit: "32kb", strict: true }), catalogCategoriesRouter);
   app.use("/api/v1/catalog/products", express.json({ limit: "256kb", strict: true }), catalogProductsRouter);
   app.use(

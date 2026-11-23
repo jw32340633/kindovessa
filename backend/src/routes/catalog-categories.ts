@@ -30,6 +30,22 @@ class CatalogCategoryError extends Error {
 export const catalogCategoriesRouter = Router();
 catalogCategoriesRouter.use(requireAdmin);
 
+export const storefrontCategoriesRouter = Router();
+storefrontCategoriesRouter.get("/", async (_request, response) => {
+  if (!pool) {
+    response.status(503).json({ error: { message: "Catalog is temporarily unavailable." } });
+    return;
+  }
+  const result = await pool.query(
+    `SELECT c.slug, c.title, a.url AS "coverUrl"
+     FROM catalog_categories c
+     JOIN catalog_assets a ON a.id = c.cover_asset_id
+     WHERE c.title IS NOT NULL AND a.url IS NOT NULL
+     ORDER BY c.created_at, c.slug`,
+  );
+  response.json({ categories: result.rows });
+});
+
 catalogCategoriesRouter.get("/", async (_request, response) => {
   const result = await pool!.query(`${listCategories} ORDER BY c.created_at DESC, c.id`);
   response.json({ categories: result.rows });

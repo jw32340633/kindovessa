@@ -1,5 +1,3 @@
-import type { ImageProps } from "next/image";
-
 import personalCareDesktop from "../../public/images/personal-care-bg-img-desktop.png";
 import personalCareTablet from "../../public/images/personal-care-bg-img-tablet.png";
 import personalCareMobile from "../../public/images/personal-care-bg-img-mobile.png";
@@ -16,11 +14,6 @@ import comfortDesktop from "../../public/images/massagers-comfort-bg-img-desktop
 import comfortTablet from "../../public/images/massagers-comfort-bg-img-tablet.png";
 import comfortMobile from "../../public/images/massagers-comfort-bg-img-mobile.png";
 
-import personalCareCategory from "../../public/images/category-personal-care-img.png";
-import bathMobilityCategory from "../../public/images/category-bath-mobility-img.png";
-import dailyLivingCategory from "../../public/images/category-daily-living-aids-img.png";
-import healthMonitorsCategory from "../../public/images/category-health-monitors-img.png";
-import massagersComfortCategory from "../../public/images/category-massagers-comfort-img.png";
 
 export const HeroSectionData = [
   {
@@ -107,45 +100,5 @@ export const HeroSectionData = [
       href: "/collections/massagers-comfort",
     },
     secondaryCta: { label: "Shop All Products", href: "/shop" },
-  },
-] as const;
-
-interface ShopCategory {
-  id: string;
-  title: string;
-  image: ImageProps["src"] | null;
-  href: string;
-}
-
-export const ShopCategorySectionData: readonly ShopCategory[] = [
-  {
-    id: "personal-care",
-    title: "Personal Care",
-    image: personalCareCategory,
-    href: "/collections/personal-care",
-  },
-  {
-    id: "bath-mobility",
-    title: "Bath & Mobility",
-    image: bathMobilityCategory,
-    href: "/collections/bath-mobility",
-  },
-  {
-    id: "daily-living-aids",
-    title: "Daily Living Aids",
-    image: dailyLivingCategory,
-    href: "/collections/daily-living-aids",
-  },
-  {
-    id: "health-monitors",
-    title: "Health Monitors",
-    image: healthMonitorsCategory,
-    href: "/collections/health-monitors",
-  },
-  {
-    id: "massagers-comfort",
-    title: "Massagers & Comfort",
-    image: massagersComfortCategory,
-    href: "/collections/massagers-comfort",
   },
 ] as const;

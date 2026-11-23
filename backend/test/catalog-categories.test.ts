@@ -9,6 +9,18 @@ const id = "6ff589d8-c2a2-4917-ae30-ac0b8dc02600";
 const coverAssetId = "6ff589d8-c2a2-4917-ae30-ac0b8dc02601";
 const authorization = `Bearer ${"a".repeat(64)}`;
 
+test("storefront categories are readable without an admin session", { skip: !pool }, async (context) => {
+  const category = { slug: "personal-care", title: "Personal Care", coverUrl: "https://res.cloudinary.com/test/image/upload/cover.webp" };
+  const query = context.mock.method(pool!, "query", async (sql: string) => {
+    assert.match(sql, /SELECT c.slug, c.title, a.url AS "coverUrl"/);
+    assert.match(sql, /WHERE c.title IS NOT NULL AND a.url IS NOT NULL/);
+    return { rows: [category] };
+  });
+  const response = await request(createApp()).get("/api/v1/storefront/categories").expect(200);
+  assert.deepEqual(response.body, { categories: [category] });
+  assert.equal(query.mock.callCount(), 1);
+});
+
 test("catalog category endpoints require admin authentication", async () => {
   const api = request(createApp());
   await api.get(endpoint).expect(401);
