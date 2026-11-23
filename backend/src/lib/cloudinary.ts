@@ -8,6 +8,14 @@ export const uploadsConfigured = () =>
     env.CLOUDINARY_API_KEY &&
     env.CLOUDINARY_API_SECRET
   );
+export class ImageStorageError extends Error {
+  constructor(
+    readonly kind: "unreadable" | "size" | "format" | "configuration" | "unavailable",
+    readonly upstreamStatus?: number,
+  ) {
+    super("Image storage request failed.");
+  }
+}
 async function cloudRequest(
   action: "upload" | "destroy",
   parameters: Record<string, string>,
@@ -34,7 +42,23 @@ async function cloudRequest(
     `https://api.cloudinary.com/v1_1/${env.CLOUDINARY_CLOUD_NAME}/image/${action}`,
     { method: "POST", body: form, signal: AbortSignal.timeout(15000) },
   );
-  if (!response.ok) throw new Error("Image storage request failed.");
+  if (!response.ok) {
+    if (action === "upload") {
+      const result = await response.json().catch(() => null);
+      const detail = typeof result?.error?.message === "string" ? result.error.message : "";
+      const status = response.status;
+      if (status === 401 || status === 403 || /invalid signature|unknown api key/i.test(detail))
+        throw new ImageStorageError("configuration", status);
+      if (status === 413 || (status === 400 && /file size too large|image size too large/i.test(detail)))
+        throw new ImageStorageError("size", status);
+      if (status === 400 && /invalid image file|corrupt(?:ed)? image|could not decode/i.test(detail))
+        throw new ImageStorageError("unreadable", status);
+      if (status === 415 || (status === 400 && /unsupported image format|format .* not allowed/i.test(detail)))
+        throw new ImageStorageError("format", status);
+      throw new ImageStorageError("unavailable", status);
+    }
+    throw new Error("Image storage request failed.");
+  }
   return response.json();
 }
 export async function uploadImage(

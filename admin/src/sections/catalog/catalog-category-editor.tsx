@@ -1,7 +1,9 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent } from "react";
 import Image from "next/image";
+import { X } from "lucide-react";
+import { RequiredMark } from "./required-mark";
 
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
@@ -22,10 +24,16 @@ export default function CatalogCategoryEditor({ category, onClose, onSave }: {
   const [cover, setCover] = useState(category ? { assetId: category.coverAssetId, url: category.coverUrl } : null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState<"upload" | "save" | null>(null);
+  const coverInput = useRef<HTMLInputElement>(null);
   const slug = title === category?.title ? category.slug : catalogCategorySlug(title);
 
-  async function upload(file?: File) {
-    if (!file || busy) return;
+  async function upload(files: FileList | null) {
+    if (!files?.length || busy) return;
+    if (cover || files.length !== 1) {
+      setError("Only one cover image is allowed. Remove the current image before uploading another.");
+      return;
+    }
+    const file = files[0];
     setError("");
     setBusy("upload");
     try {
@@ -57,18 +65,7 @@ export default function CatalogCategoryEditor({ category, onClose, onSave }: {
         <DialogDescription className="sr-only">Enter the category title and upload a cover image.</DialogDescription>
         <form onSubmit={submit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="category-cover">Cover image</Label>
-            {cover && <Image src={cover.url} width={96} height={96} unoptimized alt="" className="size-24 rounded-lg border object-contain" />}
-            <Input id="category-cover" type="file" accept={catalogImageTypes.join(",")} disabled={Boolean(busy)}
-              className="h-12 rounded-none" onChange={(event) => {
-                const file = event.target.files?.[0];
-                event.target.value = "";
-                void upload(file);
-              }} />
-            {busy === "upload" && <p className="flex items-center gap-2" role="status"><Spinner aria-hidden="true" /> Uploading cover image</p>}
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="category-title">Title</Label>
+            <Label htmlFor="category-title">Title<RequiredMark /></Label>
             <Input id="category-title" value={title} onChange={(event) => setTitle(event.target.value)}
               disabled={Boolean(busy)} maxLength={120} required className="h-12 rounded-none" />
             {title.trim() && !slug && <p className="text-destructive">Enter a title that can form a URL.</p>}
@@ -80,6 +77,44 @@ export default function CatalogCategoryEditor({ category, onClose, onSave }: {
               <p className="text-muted-foreground">Saving will change the category URL and update its product links.</p>
             )}
           </div>
+          <fieldset className="space-y-4">
+            <legend className="mb-2 text-base font-semibold">Cover Image<RequiredMark /></legend>
+            <Input ref={coverInput} type="file" accept={catalogImageTypes.join(",")}
+              aria-label="Upload category cover image" disabled={Boolean(busy) || Boolean(cover)}
+              className="hidden" onChange={(event) => {
+                void upload(event.currentTarget.files);
+                event.currentTarget.value = "";
+              }} />
+            <Button type="button" disabled={Boolean(busy) || Boolean(cover)}
+              className="h-12 rounded-none bg-black px-6 text-sm font-semibold text-white hover:bg-black/85"
+              style={{ boxShadow: "rgba(50, 50, 93, 0.25) 0px 2px 5px -1px, rgba(0, 0, 0, 0.3) 0px 1px 3px -1px" }}
+              onClick={() => coverInput.current?.click()}>
+              Choose file
+            </Button>
+            {busy === "upload" && (
+              <div role="status" className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Spinner aria-hidden="true" /> Uploading cover image
+              </div>
+            )}
+            {cover ? (
+              <div className="grid grid-cols-2 gap-3">
+                <div className="relative aspect-square overflow-hidden border bg-muted">
+                  <Image src={cover.url} alt="Category cover image" fill unoptimized sizes="(min-width: 640px) 230px, 45vw" className="object-cover" />
+                  <span className="absolute left-2 top-2 bg-black px-2 py-1 text-xs font-medium text-white">Cover image</span>
+                  <Button type="button" variant="destructive" size="icon" aria-label="Remove cover image"
+                    disabled={Boolean(busy)}
+                    className="absolute right-2 top-2 size-9 rounded-none border border-white/30 bg-destructive text-destructive-foreground shadow-md hover:bg-destructive/90"
+                    onClick={() => { setCover(null); setError(""); }}>
+                    <X />
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="border border-dashed p-5 text-sm italic text-muted-foreground">
+                No cover image yet. Upload one JPEG, PNG, WebP, or AVIF image, up to 3 MB.
+              </div>
+            )}
+          </fieldset>
           {error && <p className="text-destructive" role="alert">{error}</p>}
           <div className="flex justify-end gap-2 border-t pt-4">
             <Button type="button" variant="outline" className="h-11 rounded-none" disabled={Boolean(busy)} onClick={onClose}>Cancel</Button>

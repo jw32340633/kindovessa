@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import Image from "next/image";
+import { RequiredMark } from "./required-mark";
 import toast from "react-hot-toast";
 
 import { Button } from "@/components/ui/button";
@@ -30,7 +31,7 @@ import {
 
 import {
   uploadCatalogImage as uploadFile,
-  validCatalogImage as validImage,
+  catalogImageError,
 } from "@/lib/catalog-image";
 
 import { Plus, Trash2, X } from "lucide-react";
@@ -105,8 +106,9 @@ export default function CatalogProductEditor({
       toast.error("A product can have up to eight images.");
       return;
     }
-    if (selected.some((file) => !validImage(file))) {
-      toast.error("Choose JPEG, PNG, WebP, or AVIF images up to 3 MB each.");
+    const validationError = selected.map(catalogImageError).find(Boolean);
+    if (validationError) {
+      toast.error(validationError);
       return;
     }
     setUploading(true);
@@ -252,7 +254,7 @@ export default function CatalogProductEditor({
     const validationError = options.validate?.(currentValue) ?? null;
     return (
       <div className="min-w-0 space-y-2">
-        <Label htmlFor={`product-${name}`}>{label}</Label>
+        <Label htmlFor={`product-${name}`}>{label}{options.required && <RequiredMark />}</Label>
         <Input
           id={`product-${name}`}
           name={name}
@@ -314,11 +316,12 @@ export default function CatalogProductEditor({
           : `Maximum ${max.toLocaleString("en-US")}.`;
     return (
       <div className="space-y-2">
-        <Label htmlFor={`product-${name}`}>{label}</Label>
+        <Label htmlFor={`product-${name}`}>{label}{name === "price" && <RequiredMark />}</Label>
         <Input
           id={`product-${name}`}
           name={name}
           type="number"
+          required={name === "price"}
           min="0"
           max={max}
           step={step}
@@ -366,7 +369,7 @@ export default function CatalogProductEditor({
     return (
       <div key={field} className="space-y-2">
         <div className="flex min-h-5 items-center justify-between gap-3">
-          <Label htmlFor={`product-${field}`}>{label}</Label>
+          <Label htmlFor={`product-${field}`}>{label}{field === "description" && <RequiredMark />}</Label>
           {section && (
             <button
               type="button"
@@ -395,6 +398,7 @@ export default function CatalogProductEditor({
         </div>
         <Textarea
           id={`product-${field}`}
+          required={field === "description"}
           name={field}
           defaultValue={initialValue}
           maxLength={maxLength}
@@ -473,6 +477,10 @@ export default function CatalogProductEditor({
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (saving || uploading) return;
+    if (!category || (category !== product?.category && !categories.some((item) => item.slug === category))) {
+      toast.error("Choose a category before saving.");
+      return;
+    }
     const form = new FormData(event.currentTarget);
     const price = String(form.get("price") ?? "");
     const activeVariants = variantsEnabled ? variants : [];
@@ -576,7 +584,7 @@ export default function CatalogProductEditor({
                         : null,
                   })}
                   <div className="space-y-2">
-                    <Label htmlFor="product-category">Category</Label>
+                    <Label htmlFor="product-category">Category<RequiredMark /></Label>
                     <select
                       id="product-category"
                       value={category}
@@ -584,8 +592,8 @@ export default function CatalogProductEditor({
                       required
                       className={selectClass}
                     >
-                      <option value="">Choose a category</option>
-                      {product &&
+                      <option value="" disabled>Choose a category</option>
+                      {product?.category &&
                         !categories.some(
                           (item) => item.slug === product.category,
                         ) && (
@@ -683,7 +691,7 @@ export default function CatalogProductEditor({
                         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                           <div className="space-y-2">
                             <Label htmlFor={`variant-${index}-title`}>
-                              Title
+                              Title<RequiredMark />
                             </Label>
                             <Input
                               id={`variant-${index}-title`}
@@ -706,7 +714,7 @@ export default function CatalogProductEditor({
                           {optionType === "color-swatch" && (
                             <div className="space-y-2">
                               <Label htmlFor={`variant-${index}-color`}>
-                                Color
+                                Color<RequiredMark />
                               </Label>
                               <div className="flex h-12 border">
                                 <input
@@ -737,7 +745,7 @@ export default function CatalogProductEditor({
                           )}
                           {optionType === "image-swatch" && (
                             <div className="space-y-2">
-                              <Label>Swatch image</Label>
+                              <Label>Swatch image<RequiredMark /></Label>
                               {item.image ? (
                                 <div className="relative size-12 overflow-hidden border">
                                   <Image
@@ -817,7 +825,7 @@ export default function CatalogProductEditor({
                           {item.priceMode === "custom" && (
                             <div className="space-y-2">
                               <Label htmlFor={`variant-${index}-price`}>
-                                Custom price (USD)
+                                Custom price (USD)<RequiredMark />
                               </Label>
                               <Input
                                 id={`variant-${index}-price`}
@@ -889,7 +897,7 @@ export default function CatalogProductEditor({
               </fieldset>
               <fieldset className="order-5 space-y-4">
                 <legend className="mb-2 text-base font-semibold">
-                  Images & media
+                  Images & media<RequiredMark />
                 </legend>
                 <Label htmlFor="product-images" className="sr-only">
                   Upload product images
