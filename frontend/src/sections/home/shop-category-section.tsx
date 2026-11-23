@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import { connection } from "next/server";
 import { cn } from "@/lib/utils";
 
 import { apiRequest } from "@/lib/api";
@@ -7,6 +8,7 @@ import { apiRequest } from "@/lib/api";
 type StorefrontCategory = { slug: string; title: string; coverUrl: string };
 
 export default async function ShopCategorySection() {
+  await connection();
   let categories: StorefrontCategory[];
   try {
     ({ categories } = await apiRequest<{ categories: StorefrontCategory[] }>("/api/v1/storefront/categories"));
