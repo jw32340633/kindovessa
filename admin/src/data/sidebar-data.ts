@@ -1,14 +1,27 @@
-import { Boxes, House } from "lucide-react";
+import dashboardIcon from "../../public/icons/dashboard-icon.png";
+import productsIcon from "../../public/icons/products-icon.png";
+import WebsiteIcon from "../../public/icons/web-icon.png";
+import DataIcon from "../../public/icons/data-icon.png";
 
 export const SidebarNavlink = [
   {
-    title: "Home",
+    title: "Dashboard",
     url: "/dashboard",
-    icon: House,
+    icon: dashboardIcon,
   },
   {
     title: "Products",
     url: "/dashboard/products",
-    icon: Boxes,
+    icon: productsIcon,
+  },
+  {
+    title: "Sales",
+    url: "/dashboard/sales",
+    icon: WebsiteIcon,
+  },
+  {
+    title: "Data",
+    url: "/dashboard/data",
+    icon: DataIcon,
   },
 ];

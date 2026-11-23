@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 
@@ -35,7 +36,7 @@ export function AppSidebar({ className, ...props }: React.ComponentProps<typeof 
             {SidebarNavlink.map((item) => (
               <SidebarMenuItem key={item.title}>
                 <SidebarMenuButton render={<Link href={item.url} />} isActive={activeItem?.url === item.url} aria-current={pathname === item.url ? "page" : undefined} className="h-12 gap-3 rounded-lg px-3 text-base font-medium data-[active=true]:bg-sidebar-accent data-[active=true]:font-semibold data-[active=true]:text-sidebar-accent-foreground [&>svg]:size-5">
-                  <item.icon aria-hidden="true" strokeWidth={2} />
+                  <Image src={item.icon} alt="" width={24} height={24} className="size-6 shrink-0 object-contain" />
                   <span>{item.title}</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>

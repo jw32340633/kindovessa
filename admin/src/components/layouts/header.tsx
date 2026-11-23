@@ -4,9 +4,10 @@ import { useAuth } from "@/providers/auth-provider";
 import { Fragment } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LogOut, Settings } from "lucide-react";
+import { Settings, LogOut } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
 import {
   Popover,
   PopoverContent,
@@ -46,7 +47,7 @@ function Header() {
           url: "/dashboard",
           title:
             SidebarNavlink.find((item) => item.url === "/dashboard")?.title ??
-            "Home",
+            "Dashboard",
         },
       ];
   return (
@@ -117,10 +118,11 @@ function Header() {
               <PopoverTitle className="sr-only">Account options</PopoverTitle>
               <Button
                 render={<Link href="/dashboard/settings" />}
+                nativeButton={false}
                 variant="ghost"
                 className="h-11 w-full justify-start gap-3 px-3"
               >
-                <Settings aria-hidden="true" />
+                <Settings className="size-4" aria-hidden="true" />
                 Settings
               </Button>
               <Separator className="h-0.5" />
@@ -129,8 +131,15 @@ function Header() {
                 variant="ghost"
                 onClick={() => void logout()} disabled={loggingOut} className="h-11 w-full justify-start gap-3 px-3 text-destructive hover:bg-destructive/10 hover:text-destructive"
               >
-                <LogOut aria-hidden="true" />
-                {loggingOut ? "Signing out..." : "Logout"}
+                <LogOut className="size-4" aria-hidden="true" />
+                {loggingOut ? (
+                  <>
+                    Signing out
+                    <Spinner aria-hidden="true" />
+                  </>
+                ) : (
+                  "Logout"
+                )}
               </Button>
             </PopoverContent>
           </Popover>
