@@ -15,6 +15,7 @@ import {
   sortFns,
   filterFns,
   type ColumnDef,
+  type PaginationState,
   type SortingState,
 } from "@tanstack/react-table";
 import Image from "next/image";
@@ -26,18 +27,14 @@ import {
   ChevronRight,
   Package,
   Pencil,
-  Plus,
   RefreshCw,
-  Search,
   Trash2,
-  X,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Input } from "@/components/ui/input";
-import { Separator } from "@/components/ui/separator";
+import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import {
@@ -56,13 +53,17 @@ import {
   AlertDialogFooter,
   AlertDialogCancel,
 } from "@/components/ui/alert-dialog";
-import ProductsTableSkeleton from "@/components/shared/products-table-skeleton";
-import ProductEditor from "@/components/products/product-editor";
+import ProductEditor from "@/sections/catalog/catalog-product-editor";
+
 import {
-  categoryLabels,
-  ProductCategory,
+  catalogCategoryTitle,
+  catalogPageSizes,
   type CatalogProduct,
-} from "@/data/products-data";
+  type CatalogCategory,
+} from "@/data/catalog-data";
+
+
+import { CatalogTableEmptyRow, CatalogTableSearch } from "./catalog-table-controls";
 
 const features = tableFeatures({
   columnFilteringFeature,
@@ -86,8 +87,15 @@ const compactColumnIds = new Set([
   "actions",
 ]);
 
-export default function DashboardProductsPage() {
+export default function ProductTableCard({ categories, adding, closeAdd, refreshKey, onChanged }: {
+  categories: CatalogCategory[];
+  adding: boolean;
+  closeAdd: () => void;
+  refreshKey: number;
+  onChanged: () => void;
+}) {
   "use no memo";
+  const [productCount, setProductCount] = useState(0);
   const [products, setProducts] = useState<CatalogProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [loaded, setLoaded] = useState(false);
@@ -96,14 +104,18 @@ export default function DashboardProductsPage() {
   const [truncated, setTruncated] = useState(false);
   const [deletingBusy, setDeletingBusy] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 10 });
+  const [query, setQuery] = useState("");
+  const [pagination, setPagination] = useState<PaginationState>({
+    pageIndex: 0,
+    pageSize: catalogPageSizes.products,
+  });
   useEffect(() => {
     const controller = new AbortController();
     async function load() {
       setLoading(true);
       setError("");
       try {
-        const response = await fetch("/api/products", {
+        const response = await fetch("/api/catalog/products", {
           signal: controller.signal,
           cache: "no-store",
         });
@@ -115,6 +127,8 @@ export default function DashboardProductsPage() {
         if (!response.ok)
           throw new Error(result.error?.message ?? "Unable to load products.");
         setProducts(result.products);
+        if (!result.products.length) setQuery("");
+        setProductCount(result.total);
         setLoaded(true);
         setTruncated(result.truncated);
         setPagination((current) => ({
@@ -140,9 +154,8 @@ export default function DashboardProductsPage() {
     }
     void load();
     return () => controller.abort();
-  }, [reload]);
-  const [query, setQuery] = useState("");
-  const [category, setCategory] = useState("all");
+  }, [reload, refreshKey]);
+  const [category, setCategory] = useState("");
   const [sorting, setSorting] = useState<SortingState>([]);
 
   const [editor, setEditor] = useState<{
@@ -164,6 +177,7 @@ export default function DashboardProductsPage() {
               <Checkbox
                 className="shrink-0"
                 checked={allSelected}
+                disabled={loading || pageRows.length === 0}
                 onCheckedChange={(checked) => {
                   const pageIds = pageRows.map((row) => row.original.id);
                   setSelectedIds((current) => {
@@ -215,7 +229,7 @@ export default function DashboardProductsPage() {
         accessorKey: "name",
         header: "Product",
         cell: ({ row }) => (
-          <div className="flex min-w-64 items-center gap-3">
+          <div className="flex min-w-0 w-full items-center gap-3">
             <span className="flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-lg border bg-muted/40">
               {row.original.images[0] ? (
                 <Image
@@ -233,11 +247,11 @@ export default function DashboardProductsPage() {
                 />
               )}
             </span>
-            <div className="min-w-0">
-              <span className="block max-w-80 truncate font-medium text-heading">
+            <div className="min-w-0 flex-1">
+              <span className="block truncate font-medium text-heading" title={row.original.name}>
                 {row.original.name}
               </span>
-              <span className="mt-1 block text-xs text-muted-foreground">
+              <span className="mt-1 block truncate text-xs text-muted-foreground">
                 {row.original.brand || "Brand not entered"}
               </span>
             </div>
@@ -248,8 +262,8 @@ export default function DashboardProductsPage() {
         accessorKey: "category",
         header: "Category",
         cell: ({ row }) => (
-          <span className="whitespace-nowrap text-sm">
-            {categoryLabels[row.original.category]}
+          <span className="block truncate text-sm" title={catalogCategoryTitle(row.original.category, categories)}>
+            {catalogCategoryTitle(row.original.category, categories)}
           </span>
         ),
       },
@@ -338,14 +352,16 @@ export default function DashboardProductsPage() {
         ),
       },
     ],
-    [selectedIdSet],
+    [selectedIdSet, categories, loading],
   );
+  const categoryOptions = [...new Set([...categories.map((item) => item.slug), ...products.map((item) => item.category)])];
+  const activeCategory = categories.length > 0 && categoryOptions.includes(category) ? category : "";
   const data = useMemo(
     () =>
       products.filter(
-        (product) => category === "all" || product.category === category,
+        (product) => activeCategory === "" || product.category === activeCategory,
       ),
-    [products, category],
+    [products, activeCategory],
   );
   const table = useTable({
     features,
@@ -382,7 +398,7 @@ export default function DashboardProductsPage() {
     delete payload.createdAt;
     delete payload.updatedAt;
     const response = await fetch(
-      existing ? "/api/products/" + id : "/api/products",
+      existing ? "/api/catalog/products/" + id : "/api/catalog/products",
       {
         method: existing ? "PUT" : "POST",
         headers: { "Content-Type": "application/json" },
@@ -402,7 +418,11 @@ export default function DashboardProductsPage() {
         : [result.product, ...current],
     );
     setEditor(null);
+    closeAdd();
+    if (!existing) setProductCount((count) => count + 1);
+    onChanged();
     resetPage();
+    setReload((value) => value + 1);
     toast.success(existing ? "Product updated." : "Product created.");
   }
   const selectedProducts = useMemo(
@@ -416,8 +436,8 @@ export default function DashboardProductsPage() {
       const deletingMultiple = deleteTargets.length > 1;
       const response = await fetch(
         deletingMultiple
-          ? "/api/products/bulk"
-          : "/api/products/" + deleteTargets[0].id,
+          ? "/api/catalog/products/bulk"
+          : "/api/catalog/products/" + deleteTargets[0].id,
         {
           method: "DELETE",
           headers: { "Content-Type": "application/json" },
@@ -447,7 +467,10 @@ export default function DashboardProductsPage() {
       );
       setSelectedIds((current) => current.filter((id) => !deletedIds.has(id)));
       setDeleteTargets([]);
+      setProductCount((count) => count - deletedIds.size);
+      onChanged();
       resetPage();
+      setReload((value) => value + 1);
       toast.success(
         deleteTargets.length === 1 ? "Product deleted." : "Products deleted.",
       );
@@ -461,40 +484,16 @@ export default function DashboardProductsPage() {
   }
   const total = table.getFilteredRowModel().rows.length;
   const productRows = table.getRowModel().rows;
-  const emptyTableRows = Math.max(0, 10 - productRows.length);
+  const emptyTableRows = Math.max(0, pagination.pageSize - productRows.length);
   return (
-    <main className="dashboard-layout">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold sm:text-3xl">Product Management</h1>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Manage your catalog, variants, images, and product information.
-          </p>
-        </div>
-        <Button
-          type="button"
-          style={{
-            boxShadow:
-              "rgba(50, 50, 93, 0.25) 0px 2px 5px -1px, rgba(0, 0, 0, 0.3) 0px 1px 3px -1px",
-          }}
-          disabled={!loaded && (loading || !!error)}
-          className="h-12 gap-2 rounded-none px-6 text-sm font-semibold"
-          onClick={() => setEditor({ product: null })}
-        >
-          <Plus className="size-4 shrink-0" aria-hidden="true" />
-          Add Product
-        </Button>
-      </div>
-      <Separator className={"w-full h-0.5"} />
+    <>
       {truncated && (
         <p className="text-sm text-muted-foreground">
           Showing the first 500 products. Server pagination will be required
           before expanding beyond this catalog limit.
         </p>
       )}
-      {loading && !loaded ? (
-        <ProductsTableSkeleton />
-      ) : error && !loaded ? (
+      {error && !loaded ? (
         <div role="alert" className="rounded-xl border bg-card p-8 text-center">
           <p>{error}</p>
           <Button
@@ -509,108 +508,96 @@ export default function DashboardProductsPage() {
       ) : (
         <>
           <Card className="mt-2 gap-0 overflow-hidden py-0 md:mt-3">
-            <CardContent className="p-0">
-              <div className="flex flex-col gap-3 border-b p-4 xl:flex-row xl:items-center xl:justify-between sm:p-5">
-                <div className="relative w-full xl:max-w-sm">
-                  <Search
-                    className="absolute top-3.5 left-3 size-4 shrink-0 text-muted-foreground"
-                    aria-hidden="true"
-                  />
-                  <Input
-                    aria-label="Search products by name or brand"
-                    placeholder="Search products or brand..."
-                    value={query}
-                    onChange={(event) => {
-                      setQuery(event.target.value);
-                      resetPage();
-                    }}
-                    className="h-11 pl-10 rounded-none"
-                  />
-                </div>
-                <div className="flex flex-wrap items-center gap-3">
-                  <Button
-                    type="button"
-                    className="h-11 shrink-0 gap-2 rounded-none bg-red-500 text-white shadow-sm hover:bg-red-600 hover:text-white"
-                    style={{
-                      boxShadow:
-                        "rgba(50, 50, 93, 0.25) 0px 2px 5px -1px, rgba(0, 0, 0, 0.3) 0px 1px 3px -1px",
-                    }}
-                    disabled={!selectedProducts.length || deletingBusy}
-                    onClick={() => setDeleteTargets(selectedProducts)}
-                  >
-                    <Trash2
-                      className="size-4 shrink-0"
-                      aria-hidden="true"
-                      strokeWidth={2}
-                    />
-                    Delete selected
-                    {selectedProducts.length
-                      ? ` (${selectedProducts.length})`
-                      : ""}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="h-11 shrink-0 gap-2 rounded-none"
-                    style={{
-                      boxShadow:
-                        "rgba(50, 50, 93, 0.25) 0px 2px 5px -1px, rgba(0, 0, 0, 0.3) 0px 1px 3px -1px",
-                    }}
-                    disabled={loading}
-                    aria-busy={loading}
-                    onClick={() => setReload((current) => current + 1)}
-                  >
-                    {loading ? (
-                      <>
-                        Refreshing
-                        <Spinner aria-hidden="true" />
-                      </>
-                    ) : (
-                      <>
-                        <RefreshCw
-                          className="size-4 shrink-0"
-                          aria-hidden="true"
-                          strokeWidth={2}
-                        />
-                        Refresh
-                      </>
-                    )}
-                  </Button>
-                  <select
-                    aria-label="Filter by category"
-                    value={category}
-                    onChange={(event) => {
-                      setCategory(event.target.value);
-                      resetPage();
-                    }}
-                    className="h-11 min-w-0 flex-1 rounded-none border bg-card px-3 text-sm sm:flex-none"
-                  >
-                    <option value="all">All categories</option>
-                    {Object.values(ProductCategory).map((value) => (
-                      <option key={value} value={value}>
-                        {categoryLabels[value]}
-                      </option>
-                    ))}
-                  </select>
-                  {(query || category !== "all") && (
+            <CardContent className="@container p-0">
+              <div className="space-y-3 border-b p-4 sm:p-5">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <h2 className="flex items-start gap-2 text-xl font-semibold">
+                    Products Table <Badge aria-label={`${productCount} total products`} className="bg-primary text-primary-foreground">{productCount}</Badge>
+                  </h2>
+                  <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:flex-wrap sm:justify-end">
                     <Button
-                      variant="ghost"
                       type="button"
-                      className="h-11 gap-1"
-                      onClick={() => {
-                        setQuery("");
-                        setCategory("all");
+                      className="h-11 w-full gap-2 rounded-none sm:w-auto bg-red-500 text-white shadow-sm hover:bg-red-600 hover:text-white"
+                      style={{
+                        boxShadow:
+                          "rgba(50, 50, 93, 0.25) 0px 2px 5px -1px, rgba(0, 0, 0, 0.3) 0px 1px 3px -1px",
+                      }}
+                      disabled={!selectedProducts.length || deletingBusy}
+                      onClick={() => setDeleteTargets(selectedProducts)}
+                    >
+                      <Trash2
+                        className="size-4 shrink-0"
+                        aria-hidden="true"
+                        strokeWidth={2}
+                      />
+                      Delete selected
+                      {selectedProducts.length
+                        ? ` (${selectedProducts.length})`
+                        : ""}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="h-11 w-full gap-2 rounded-none sm:w-auto"
+                      style={{
+                        boxShadow:
+                          "rgba(50, 50, 93, 0.25) 0px 2px 5px -1px, rgba(0, 0, 0, 0.3) 0px 1px 3px -1px",
+                      }}
+                      disabled={loading}
+                      aria-busy={loading}
+                      onClick={() => setReload((current) => current + 1)}
+                    >
+                      {loading ? (
+                        <>
+                          Refreshing
+                          <Spinner aria-hidden="true" />
+                        </>
+                      ) : (
+                        <>
+                          <RefreshCw
+                            className="size-4 shrink-0"
+                            aria-hidden="true"
+                            strokeWidth={2}
+                          />
+                          Refresh
+                        </>
+                      )}
+                    </Button>
+                    <select
+                      aria-label="Filter by category"
+                      disabled={categories.length === 0}
+                      value={activeCategory}
+                      onChange={(event) => {
+                        setCategory(event.target.value);
                         resetPage();
                       }}
+                      className="h-11 w-full min-w-0 rounded-none border bg-card px-3 text-sm disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto sm:max-w-60"
                     >
-                      <X aria-hidden="true" />
-                      Clear
-                    </Button>
-                  )}
+                      <option value="">All categories</option>
+                      {categoryOptions.map((value) => (
+                        <option key={value} value={value}>
+                          {catalogCategoryTitle(value, categories)}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
+                <CatalogTableSearch label="Search products" placeholder="Search products or brand..." value={query}
+                  disabled={products.length === 0}
+                  onChange={(value) => { setQuery(value); resetPage(); }} />
               </div>
               <div>
-                <Table>
+                <Table className="min-w-[58rem] table-fixed">
+                  <colgroup>
+                    <col className="w-12" />
+                    <col className="w-[4.5rem]" />
+                    <col />
+                    <col className="w-32" />
+                    <col className="w-24" />
+                    <col className="w-24" />
+                    <col className="w-36" />
+                    <col className="w-[7.5rem]" />
+                  </colgroup>
                   <TableHeader className="sticky top-0 z-10 bg-card">
                     {table.getHeaderGroups().map((group) => (
                       <TableRow
@@ -630,7 +617,7 @@ export default function DashboardProductsPage() {
                                 isSelect
                                   ? "w-12 !p-0 text-center"
                                   : isCompact
-                                    ? "w-px text-center"
+                                    ? "text-center"
                                     : ""
                               }`}
                             >
@@ -672,7 +659,7 @@ export default function DashboardProductsPage() {
                     className="[&_tr:last-child]:border-b"
                   >
                     {loading ? (
-                      Array.from({ length: 10 }, (_, index) => (
+                      Array.from({ length: pagination.pageSize }, (_, index) => (
                         <TableRow
                           key={`refresh-${index}`}
                           className="h-20 border-b border-border"
@@ -684,15 +671,15 @@ export default function DashboardProductsPage() {
                                 column.id === "select"
                                   ? "w-12 !p-0 text-center"
                                   : compactColumnIds.has(column.id ?? "")
-                                    ? "w-px text-center"
+                                    ? "text-center"
                                     : ""
                               }`}
                             >
                               <Skeleton
                                 className={
                                   cellIndex === 2
-                                    ? "h-12 w-56"
-                                    : "mx-auto h-5 w-16"
+                                    ? "h-12 w-full"
+                                    : "mx-auto h-5 w-full max-w-16"
                                 }
                               />
                             </TableCell>
@@ -713,7 +700,7 @@ export default function DashboardProductsPage() {
                                   cell.column.id === "select"
                                     ? "w-12 !p-0 text-center"
                                     : compactColumnIds.has(cell.column.id)
-                                      ? "w-px text-center"
+                                      ? "text-center"
                                       : ""
                                 }`}
                               >
@@ -738,7 +725,7 @@ export default function DashboardProductsPage() {
                                   column.id === "select"
                                     ? "w-12 !p-0 text-center"
                                     : compactColumnIds.has(column.id ?? "")
-                                      ? "w-px text-center"
+                                      ? "text-center"
                                       : ""
                                 }`}
                               />
@@ -747,24 +734,13 @@ export default function DashboardProductsPage() {
                         ))}
                       </>
                     ) : (
-                      <TableRow>
-                        <TableCell
-                          colSpan={columns.length}
-                          className="h-56 text-center"
-                        >
-                          <Package className="mx-auto mb-3 size-8 shrink-0 text-muted-foreground" />
-                          <p className="font-medium">
-                            {products.length
-                              ? "No products found"
-                              : "Your catalog is empty"}
-                          </p>
-                          <p className="mt-1 text-sm text-muted-foreground">
-                            {products.length
-                              ? "Try another search or clear your filters."
-                              : "Use Add Product to create your first product."}
-                          </p>
-                        </TableCell>
-                      </TableRow>
+                      <CatalogTableEmptyRow columns={columns.length} rows={pagination.pageSize} icon={Package}
+                        title={products.length ? "No products found" : "No products yet"}
+                        description={products.length
+                          ? "Try another search or clear your filters."
+                          : categories.length
+                            ? "Use Add Product to create your first product."
+                            : "Add a category first, then create your first product."} />
                     )}
                   </TableBody>
                 </Table>
@@ -812,10 +788,11 @@ export default function DashboardProductsPage() {
           </Card>
         </>
       )}
-      {editor && (
+      {(editor || adding) && (
         <ProductEditor
-          product={editor.product}
-          onClose={() => setEditor(null)}
+          product={editor?.product ?? null}
+          categories={categories}
+          onClose={() => { setEditor(null); closeAdd(); }}
           onSave={save}
         />
       )}
@@ -876,6 +853,6 @@ export default function DashboardProductsPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </main>
+    </>
   );
 }

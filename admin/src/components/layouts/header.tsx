@@ -51,7 +51,7 @@ function Header() {
         },
       ];
   return (
-    <header className="relative z-10 flex h-22.5 shrink-0 items-center justify-between border-b bg-background shadow-[0_3px_12px_-6px_rgb(15_23_42/0.10)]">
+    <header className="sticky top-0 z-20 flex h-22.5 shrink-0 items-center justify-between border-b bg-background shadow-[0_3px_12px_-6px_rgb(15_23_42/0.10)]">
       <div className="dashboard-layout flex-row items-center justify-between gap-3 py-0 md:gap-3 md:py-0 lg:py-0">
         <div className="flex min-w-0 flex-1 items-center gap-1">
           <SidebarTrigger />

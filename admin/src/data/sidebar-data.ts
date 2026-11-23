@@ -10,13 +10,13 @@ export const SidebarNavlink = [
     icon: dashboardIcon,
   },
   {
-    title: "Products",
-    url: "/dashboard/products",
+    title: "Catalog",
+    url: "/dashboard/catalog",
     icon: productsIcon,
   },
   {
-    title: "Sales",
-    url: "/dashboard/sales",
+    title: "Merchandising",
+    url: "/dashboard/merchandising",
     icon: WebsiteIcon,
   },
   {

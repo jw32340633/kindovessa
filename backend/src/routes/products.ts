@@ -8,14 +8,7 @@ import { pool } from "../db/pool.js";
 import { requireAdmin } from "../middleware/require-admin.js";
 
 import { cleanupAssets } from "../lib/asset-cleanup.js";
-
-export const categories = [
-  "personal-care",
-  "bath-mobility",
-  "daily-living-aids",
-  "health-monitors",
-  "massagers-comfort",
-] as const;
+import { catalogCategorySlug } from "./catalog-categories.js";
 
 const money = z.string().regex(/^(?:|\d{1,7}(?:\.\d{1,2})?)$/);
 const integer = z
@@ -80,7 +73,7 @@ export const productSchema = z
       .max(220)
       .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
     brand: z.string().trim().max(100),
-    category: z.enum(categories),
+    category: catalogCategorySlug,
     variants: z.array(variant).max(50),
     images: z
       .array(
@@ -177,7 +170,7 @@ export const cents = (value: string) => {
   return Number(whole) * 100 + Number(fraction.padEnd(2, "0"));
 };
 
-const selectProduct = `SELECT p.*,COALESCE((SELECT jsonb_agg(jsonb_build_object('type',v.option_type,'title',v.title,'priceMode',CASE WHEN v.price_cents IS NULL THEN 'same' ELSE 'custom' END,'price',CASE WHEN v.price_cents IS NULL THEN '' ELSE (v.price_cents::numeric/100)::numeric(12,2)::text END,'colorHex',COALESCE(v.color_hex,''),'image',CASE WHEN a.id IS NULL THEN NULL ELSE jsonb_build_object('assetId',a.id,'url',a.url,'name','') END) ORDER BY v.sort_order) FROM catalog_variants v LEFT JOIN catalog_assets a ON a.id=v.image_asset_id WHERE v.product_id=p.id),'[]') AS variants,COALESCE((SELECT jsonb_agg(jsonb_build_object('assetId',i.asset_id,'url',i.url,'alt',i.alt,'name',i.name) ORDER BY i.sort_order) FROM catalog_images i WHERE i.product_id=p.id),'[]') AS images,COALESCE((SELECT jsonb_object_agg(di.section,jsonb_build_object('assetId',a.id,'url',a.url,'name','')) FROM catalog_detail_images di JOIN catalog_assets a ON a.id=di.asset_id WHERE di.product_id=p.id),'{}') AS detail_images FROM catalog_products p`;
+const selectProduct = `SELECT p.*, count(*) OVER () AS total_count,COALESCE((SELECT jsonb_agg(jsonb_build_object('type',v.option_type,'title',v.title,'priceMode',CASE WHEN v.price_cents IS NULL THEN 'same' ELSE 'custom' END,'price',CASE WHEN v.price_cents IS NULL THEN '' ELSE (v.price_cents::numeric/100)::numeric(12,2)::text END,'colorHex',COALESCE(v.color_hex,''),'image',CASE WHEN a.id IS NULL THEN NULL ELSE jsonb_build_object('assetId',a.id,'url',a.url,'name','') END) ORDER BY v.sort_order) FROM catalog_variants v LEFT JOIN catalog_assets a ON a.id=v.image_asset_id WHERE v.product_id=p.id),'[]') AS variants,COALESCE((SELECT jsonb_agg(jsonb_build_object('assetId',i.asset_id,'url',i.url,'alt',i.alt,'name',i.name) ORDER BY i.sort_order) FROM catalog_images i WHERE i.product_id=p.id),'[]') AS images,COALESCE((SELECT jsonb_object_agg(di.section,jsonb_build_object('assetId',a.id,'url',a.url,'name','')) FROM catalog_detail_images di JOIN catalog_assets a ON a.id=di.asset_id WHERE di.product_id=p.id),'{}') AS detail_images FROM catalog_products p`;
 
 function serialize(row: Record<string, unknown>) {
   const detailImages = row.detail_images as Record<string, unknown>;
@@ -293,14 +286,14 @@ async function children(
 }
 
 class InvalidAssetError extends Error {}
-export const productsRouter = Router();
-productsRouter.use(requireAdmin);
+export const catalogProductsRouter = Router();
+catalogProductsRouter.use(requireAdmin);
 
-productsRouter.get("/", async (request, response) => {
+catalogProductsRouter.get("/", async (request, response) => {
   const parsed = z
     .object({
       q: z.string().max(150).optional(),
-      category: z.enum(categories).optional(),
+      category: catalogCategorySlug.optional(),
     })
     .strict()
     .safeParse(request.query);
@@ -312,16 +305,17 @@ productsRouter.get("/", async (request, response) => {
   }
   const { q = "", category = null } = parsed.data;
   const result = await pool!.query(
-    `${selectProduct} WHERE ($1='' OR strpos(lower(p.name || ' ' || p.brand),lower($1))>0) AND ($2::text IS NULL OR p.category=$2) ORDER BY p.created_at DESC LIMIT 501`,
+    `${selectProduct} WHERE ($1='' OR strpos(lower(p.name || ' ' || p.brand),lower($1))>0) AND ($2::text IS NULL OR p.category=$2) ORDER BY p.created_at DESC, p.id LIMIT 501`,
     [q, category],
   );
   response.json({
     products: result.rows.slice(0, 500).map(serialize),
+    total: Number(result.rows[0]?.total_count ?? 0),
     truncated: result.rows.length > 500,
   });
 });
 
-productsRouter.get("/:id", async (request, response) => {
+catalogProductsRouter.get("/:id", async (request, response) => {
   if (!z.uuid().safeParse(request.params.id).success) {
     response.status(400).json({ error: { message: "Invalid product ID." } });
     return;
@@ -337,7 +331,7 @@ productsRouter.get("/:id", async (request, response) => {
 });
 
 for (const method of ["post", "put"] as const)
-  productsRouter[method](
+  catalogProductsRouter[method](
     method === "post" ? "/" : "/:id",
     async (request, response) => {
       const parsed = productSchema.safeParse(request.body);
@@ -363,13 +357,19 @@ for (const method of ["post", "put"] as const)
       }
       const id = update ? String(productId) : randomUUID();
       const data = parsed.data;
+      const priceCents = cents(data.price);
       const client = await pool!.connect();
       try {
         await client.query("BEGIN");
+        const category = (await client.query(
+          "SELECT title FROM catalog_categories WHERE slug=$1 FOR KEY SHARE",
+          [data.category],
+        )).rows[0];
+        let existingCategory: string | undefined;
         if (update) {
           const existing = (
             await client.query(
-              "SELECT version FROM catalog_products WHERE id=$1 FOR UPDATE",
+              "SELECT version, discount_price_cents, category FROM catalog_products WHERE id=$1 FOR UPDATE",
               [id],
             )
           ).rows[0];
@@ -384,6 +384,20 @@ for (const method of ["post", "put"] as const)
             });
             return;
           }
+          existingCategory = existing.category;
+          if (existing.discount_price_cents > 0 &&
+              (priceCents === null || priceCents <= existing.discount_price_cents)) {
+            await client.query("ROLLBACK");
+            response.status(409).json({
+              error: { message: "Adjust or remove the sale price in Sale Management before changing the product price." },
+            });
+            return;
+          }
+        }
+        if (!category || (!category.title && existingCategory !== data.category)) {
+          await client.query("ROLLBACK");
+          response.status(400).json({ error: { message: "Choose an existing catalog category." } });
+          return;
         }
         const values = [
           data.name,
@@ -391,7 +405,7 @@ for (const method of ["post", "put"] as const)
           data.brand,
           data.category,
           JSON.stringify(data.details),
-          cents(data.price),
+          priceCents,
           data.rating === "" ? null : Number(data.rating),
           data.reviewCount === "" ? null : Number(data.reviewCount),
           data.soldCount === "" ? null : Number(data.soldCount),
@@ -469,7 +483,7 @@ const bulkDeleteSchema = z
       });
   });
 
-productsRouter.delete("/bulk", async (request, response) => {
+catalogProductsRouter.delete("/bulk", async (request, response) => {
   const parsed = bulkDeleteSchema.safeParse(request.body);
   if (!parsed.success) {
     response
@@ -486,7 +500,7 @@ productsRouter.delete("/bulk", async (request, response) => {
   try {
     await client.query("BEGIN");
     const existing = await client.query<{ id: string; version: number }>(
-      "SELECT id,version FROM catalog_products WHERE id=ANY($1::uuid[]) FOR UPDATE",
+      "SELECT id,version FROM catalog_products WHERE id=ANY($1::uuid[]) ORDER BY id FOR UPDATE",
       [ids],
     );
     if (
@@ -523,7 +537,7 @@ productsRouter.delete("/bulk", async (request, response) => {
   response.json({ deletedIds: result.rows.map((product) => product.id) });
 });
 
-productsRouter.delete("/:id", async (request, response) => {
+catalogProductsRouter.delete("/:id", async (request, response) => {
   const parsed = z
     .object({ version: z.number().int().positive() })
     .strict()

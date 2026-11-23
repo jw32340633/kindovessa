@@ -45,7 +45,7 @@ uploadsRouter.post(
     const id = randomUUID();
     const publicId = `kindovessa/products/${id}`;
     const pending = await pool!.query(
-      "SELECT count(*)::int AS count FROM catalog_assets WHERE owner_id=$1 AND product_id IS NULL",
+      "SELECT count(*)::int AS count FROM catalog_assets WHERE owner_id=$1 AND product_id IS NULL AND expires_at IS NOT NULL",
       [response.locals.user.id],
     );
     if (pending.rows[0].count >= 40) {

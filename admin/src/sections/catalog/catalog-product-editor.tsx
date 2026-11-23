@@ -1,9 +1,9 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { Plus, Trash2, X } from "lucide-react";
 import Image from "next/image";
 import toast from "react-hot-toast";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,17 +15,25 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Spinner } from "@/components/ui/spinner";
+
 import {
-  categoryLabels,
-  ProductCategory,
+  catalogCategoryTitle,
   emptyVariant,
   optionTypeLabels,
   optionTypes,
   type CatalogProduct,
+  type CatalogCategory,
   type ProductDetailImageSection,
   type ProductMedia,
   type ProductOptionType,
-} from "@/data/products-data";
+} from "@/data/catalog-data";
+
+import {
+  uploadCatalogImage as uploadFile,
+  validCatalogImage as validImage,
+} from "@/lib/catalog-image";
+
+import { Plus, Trash2, X } from "lucide-react";
 
 const detailFields = [
   ["shortDescription", "Short description"],
@@ -37,30 +45,30 @@ const detailFields = [
   ["seoTitle", "SEO title"],
   ["seoDescription", "SEO description"],
 ] as const;
+
 const selectClass =
   "h-12 w-full min-w-0 rounded-none border bg-card px-3 text-base md:text-sm";
-const imageTypes = ["image/jpeg", "image/png", "image/webp", "image/avif"];
+
 const detailImageSections = ["usage", "care", "safety"] as const;
+
 const detailLimits: Partial<Record<(typeof detailFields)[number][0], number>> =
   {
     seoTitle: 70,
     seoDescription: 160,
   };
-const validImage = (file: File) =>
-  imageTypes.includes(file.type) && file.size <= 3 * 1024 * 1024;
 
-export default function ProductEditor({
+export default function CatalogProductEditor({
   product,
+  categories,
   onClose,
   onSave,
 }: {
   product: CatalogProduct | null;
+  categories: CatalogCategory[];
   onClose: () => void;
   onSave: (product: CatalogProduct) => Promise<void>;
 }) {
-  const [category, setCategory] = useState(
-    product?.category ?? ProductCategory.PersonalCare,
-  );
+  const [category, setCategory] = useState(product?.category ?? "");
   const [images, setImages] = useState<ProductMedia[]>(product?.images ?? []);
   const [variantsEnabled, setVariantsEnabled] = useState(
     (product?.variants.length ?? 0) > 0,
@@ -89,20 +97,6 @@ export default function ProductEditor({
     care: Boolean(product?.detailImages?.care),
     safety: Boolean(product?.detailImages?.safety),
   });
-
-  async function uploadFile(file: File) {
-    if (!validImage(file))
-      throw new Error("Choose a JPEG, PNG, WebP, or AVIF image up to 3 MB.");
-    const response = await fetch("/api/uploads", {
-      method: "POST",
-      headers: { "Content-Type": "application/octet-stream" },
-      body: file,
-    });
-    const data = await response.json();
-    if (!response.ok)
-      throw new Error(data.error?.message ?? "Unable to upload image.");
-    return { ...data.image, name: file.name.slice(0, 250) } as ProductMedia;
-  }
 
   async function uploadGallery(files: FileList | null) {
     if (!files || uploading) return;
@@ -338,7 +332,9 @@ export default function ProductEditor({
           }
           className={invalid ? "border-destructive" : ""}
         />
-        <p className={`text-xs ${invalid ? "text-destructive" : "text-muted-foreground"}`}>
+        <p
+          className={`text-xs ${invalid ? "text-destructive" : "text-muted-foreground"}`}
+        >
           {invalid ? `Enter a valid value. ${hint}` : hint}
         </p>
       </div>
@@ -520,9 +516,9 @@ export default function ProductEditor({
         reviewCount: String(form.get("reviewCount") ?? ""),
         soldCount: String(form.get("soldCount") ?? ""),
         leads: product?.leads ?? 0,
-      featuredProduct: product?.featuredProduct ?? false,
-      discountPrice: product?.discountPrice ?? "0.00",
-      discountBadge: product?.discountBadge ?? "none",
+        featuredProduct: product?.featuredProduct ?? false,
+        discountPrice: product?.discountPrice ?? "0.00",
+        discountBadge: product?.discountBadge ?? "none",
         details,
       });
     } catch (error) {
@@ -584,14 +580,22 @@ export default function ProductEditor({
                     <select
                       id="product-category"
                       value={category}
-                      onChange={(event) =>
-                        setCategory(event.target.value as ProductCategory)
-                      }
+                      onChange={(event) => setCategory(event.target.value)}
+                      required
                       className={selectClass}
                     >
-                      {Object.values(ProductCategory).map((value) => (
-                        <option key={value} value={value}>
-                          {categoryLabels[value]}
+                      <option value="">Choose a category</option>
+                      {product &&
+                        !categories.some(
+                          (item) => item.slug === product.category,
+                        ) && (
+                          <option value={product.category}>
+                            {catalogCategoryTitle(product.category, categories)}
+                          </option>
+                        )}
+                      {categories.map(({ slug, title }) => (
+                        <option key={slug} value={slug}>
+                          {title}
                         </option>
                       ))}
                     </select>

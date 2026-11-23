@@ -1,10 +1,18 @@
-import { Spinner } from '@/components/ui/spinner';
+import { Spinner } from "@/components/ui/spinner";
 
 export default function AdminLoader() {
   return (
-    <div role="status" aria-label="Loading admin" className="fixed inset-0 z-40 flex min-h-svh w-full items-center justify-center bg-background">
+    <div
+      role="status"
+      aria-label="Loading admin"
+      className="fixed inset-0 z-40 flex min-h-svh w-full items-center justify-center bg-background"
+    >
       <span className="sr-only">Loading admin</span>
-      <Spinner className="size-10 text-primary" strokeWidth={3} aria-hidden="true" />
+      <Spinner
+        className="size-10 text-primary"
+        strokeWidth={3}
+        aria-hidden="true"
+      />
     </div>
   );
 }
