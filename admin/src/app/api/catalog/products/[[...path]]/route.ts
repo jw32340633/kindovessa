@@ -5,10 +5,10 @@ function error(message: string, status: number) {
   return NextResponse.json({ error: { message } }, { status, headers: { "Cache-Control": "no-store" } });
 }
 
-async function handle(request: NextRequest, context: { params: Promise<{ resource: string; path?: string[] }> }) {
-  const { resource, path = [] } = await context.params;
+async function handle(request: NextRequest, context: { params: Promise<{ path?: string[] }> }) {
+  const { path = [] } = await context.params;
   const [target] = path;
-  if (!["categories", "products"].includes(resource) || path.length > 1 ||
+  if (path.length > 1 ||
     (target && target !== "bulk" && !/^[a-f\d]{8}-(?:[a-f\d]{4}-){3}[a-f\d]{12}$/i.test(target))) {
     return error("Catalog route not found.", 404);
   }
@@ -21,7 +21,7 @@ async function handle(request: NextRequest, context: { params: Promise<{ resourc
   if (write) {
     const reader = request.body?.getReader();
     if (!reader) return error("A JSON request body is required.", 400);
-    const maxBytes = (resource === "categories" ? 32 : 256) * 1024;
+    const maxBytes = 256 * 1024;
     const decoder = new TextDecoder("utf-8", { fatal: true });
     let bytes = 0;
     try {
@@ -45,7 +45,7 @@ async function handle(request: NextRequest, context: { params: Promise<{ resourc
     }
   }
   try {
-    const url = apiUrl("me").replace(/\/auth\/me$/, `/catalog/${resource}`) +
+    const url = apiUrl("me").replace(/\/auth\/me$/, "/catalog/products") +
       (target ? `/${target}` : "") + request.nextUrl.search;
     const upstream = await fetch(url, {
       method: request.method, headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },

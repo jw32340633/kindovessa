@@ -6,10 +6,6 @@ export default function Loading() {
   return (
     <div className="dashboard-layout">
       <DashboardCatalogTableSkeleton
-        rows={catalogPageSizes.categories}
-        label="Loading categories"
-      />
-      <DashboardCatalogTableSkeleton
         rows={catalogPageSizes.products}
         label="Loading products"
       />

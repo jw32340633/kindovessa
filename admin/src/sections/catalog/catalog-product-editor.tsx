@@ -18,12 +18,10 @@ import {
 import { Spinner } from "@/components/ui/spinner";
 
 import {
-  catalogCategoryTitle,
   emptyVariant,
   optionTypeLabels,
   optionTypes,
   type CatalogProduct,
-  type CatalogCategory,
   type ProductDetailImageSection,
   type ProductMedia,
   type ProductOptionType,
@@ -35,6 +33,8 @@ import {
 } from "@/lib/catalog-image";
 
 import { Plus, Trash2, X } from "lucide-react";
+
+import { Category, categoryTitles } from "@/data/enum";
 
 const detailFields = [
   ["shortDescription", "Short description"],
@@ -60,16 +60,14 @@ const detailLimits: Partial<Record<(typeof detailFields)[number][0], number>> =
 
 export default function CatalogProductEditor({
   product,
-  categories,
   onClose,
   onSave,
 }: {
   product: CatalogProduct | null;
-  categories: CatalogCategory[];
   onClose: () => void;
   onSave: (product: CatalogProduct) => Promise<void>;
 }) {
-  const [category, setCategory] = useState(product?.category ?? "");
+  const [category, setCategory] = useState<Category | "">(product?.category ?? "");
   const [images, setImages] = useState<ProductMedia[]>(product?.images ?? []);
   const [variantsEnabled, setVariantsEnabled] = useState(
     (product?.variants.length ?? 0) > 0,
@@ -262,12 +260,10 @@ export default function CatalogProductEditor({
           required={options.required}
           defaultValue={initialValue}
           maxLength={maxLength}
-          onInput={(event) =>
-            setFieldValues((current) => ({
-              ...current,
-              [name]: event.currentTarget.value,
-            }))
-          }
+          onInput={(event) => {
+            const value = event.currentTarget.value;
+            setFieldValues((current) => ({ ...current, [name]: value }));
+          }}
           aria-invalid={Boolean(validationError)}
           className={`h-12 rounded-none text-base md:text-sm ${validationError ? "border-destructive" : ""}`}
         />
@@ -327,12 +323,10 @@ export default function CatalogProductEditor({
           step={step}
           defaultValue={initialValue}
           aria-invalid={invalid}
-          onInput={(event) =>
-            setFieldValues((current) => ({
-              ...current,
-              [name]: event.currentTarget.value,
-            }))
-          }
+          onInput={(event) => {
+            const value = event.currentTarget.value;
+            setFieldValues((current) => ({ ...current, [name]: value }));
+          }}
           className={invalid ? "border-destructive" : ""}
         />
         <p
@@ -402,12 +396,10 @@ export default function CatalogProductEditor({
           name={field}
           defaultValue={initialValue}
           maxLength={maxLength}
-          onInput={(event) =>
-            setFieldValues((current) => ({
-              ...current,
-              [fieldKey]: event.currentTarget.value,
-            }))
-          }
+          onInput={(event) => {
+            const value = event.currentTarget.value;
+            setFieldValues((current) => ({ ...current, [fieldKey]: value }));
+          }}
           className="min-h-24"
         />
         <div className="flex items-center justify-between gap-3">
@@ -477,7 +469,7 @@ export default function CatalogProductEditor({
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (saving || uploading) return;
-    if (!category || (category !== product?.category && !categories.some((item) => item.slug === category))) {
+    if (!category) {
       toast.error("Choose a category before saving.");
       return;
     }
@@ -588,22 +580,14 @@ export default function CatalogProductEditor({
                     <select
                       id="product-category"
                       value={category}
-                      onChange={(event) => setCategory(event.target.value)}
+                      onChange={(event) => setCategory(event.target.value as Category)}
                       required
                       className={selectClass}
                     >
                       <option value="" disabled>Choose a category</option>
-                      {product?.category &&
-                        !categories.some(
-                          (item) => item.slug === product.category,
-                        ) && (
-                          <option value={product.category}>
-                            {catalogCategoryTitle(product.category, categories)}
-                          </option>
-                        )}
-                      {categories.map(({ slug, title }) => (
+                      {Object.values(Category).map((slug) => (
                         <option key={slug} value={slug}>
-                          {title}
+                          {categoryTitles[slug]}
                         </option>
                       ))}
                     </select>

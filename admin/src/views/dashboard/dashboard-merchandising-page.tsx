@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Plus, RefreshCw } from "lucide-react";
 import FeaturedProductTable, { featuredProductLimit } from "@/sections/merchandising/featured-product-table";
 import PricingDiscountsTable, { type DiscountChange } from "@/sections/merchandising/pricing-discounts-table";
-import { catalogButtonShadow } from "@/sections/catalog/category-table-card";
+import { catalogButtonShadow } from "@/sections/catalog/catalog-table-controls";
 import {
   Card,
   CardContent,
@@ -27,15 +27,16 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import {
-  catalogCategoryTitle,
   type ProductDiscountBadge,
 } from "@/data/catalog-data";
+
+import { Category, categoryTitles } from "@/data/enum";
 
 type SalesProduct = {
   id: string;
   name: string;
   brand: string;
-  category: string;
+  category: Category;
   imageUrl: string | null;
   price: string;
   isFeaturedProduct: boolean;
@@ -47,8 +48,7 @@ type SalesProduct = {
 };
 type SalesData = {
   products: SalesProduct[];
-  categories: { slug: string; title: string }[];
-  storefront: { collectionCategory: string | null; version: number };
+  storefront: { collectionCategory: Category | null; version: number };
 };
 type Confirmation = {
   kind: "featured" | "visibility" | "discount" | "remove";
@@ -131,17 +131,12 @@ function MerchandisingHeading({ action }: { action?: React.ReactNode }) {
 function SalesControls({ initial }: { initial: SalesData }) {
   const [data, setData] = useState(initial);
   const [adding, setAdding] = useState(false);
-  const { products, storefront, categories } = data;
+  const { products, storefront } = data;
   const [category, setCategory] = useState(storefront.collectionCategory);
   const [confirmation, setConfirmation] = useState<Confirmation | null>(null);
   const [busy, setBusy] = useState<Confirmation["kind"] | "reload" | null>(
     null,
   );
-  const [feedback, setFeedback] = useState<{
-    card: "featured" | "visibility" | "pricing";
-    error: boolean;
-    text: string;
-  } | null>(null);
   const [needsReload, setNeedsReload] = useState(false);
 
   const currentFeatured = products.filter(
@@ -159,11 +154,9 @@ function SalesControls({ initial }: { initial: SalesData }) {
         setCategory(latest.storefront.collectionCategory);
       }
       setNeedsReload(false);
-      if (card === "pricing") toast.success("Saved pricing reloaded.");
-      else setFeedback({ card, error: false, text: "Saved settings reloaded." });
+      toast.success(card === "pricing" ? "Saved pricing reloaded." : "Saved settings reloaded.");
     } catch (error) {
-      if (card === "pricing") toast.error(message(error));
-      else setFeedback({ card, error: true, text: message(error) });
+      toast.error(message(error));
     } finally {
       setBusy(null);
     }
@@ -172,9 +165,7 @@ function SalesControls({ initial }: { initial: SalesData }) {
   async function save() {
     if (!confirmation || busy) return;
     const { kind } = confirmation;
-    const card = kind === "featured" ? "featured" : kind === "visibility" ? "visibility" : "pricing";
     setBusy(kind);
-    setFeedback(null);
     try {
       const options = {
         method: "PUT",
@@ -206,11 +197,7 @@ function SalesControls({ initial }: { initial: SalesData }) {
                 };
           }),
         });
-        setFeedback({
-          card,
-          error: false,
-          text: kind === "featured" ? "Featured products updated." : "Collection category saved.",
-        });
+        toast.success(kind === "featured" ? "Featured products updated." : "Collection category saved.");
       } else if (confirmation.discount) {
         const { product: currentProduct, price, badge } = confirmation.discount;
         const { product } = await salesRequest<{ product: SalesProduct }>(
@@ -233,8 +220,7 @@ function SalesControls({ initial }: { initial: SalesData }) {
         toast.success(kind === "remove" ? "Sale price and badge removed." : "Sale price saved.");
       }
     } catch (error) {
-      if (card === "pricing") toast.error(message(error));
-      else setFeedback({ card, error: true, text: message(error) });
+      toast.error(message(error));
       setNeedsReload(
         !(error instanceof SalesRequestError) ||
           [404, 409].includes(error.status) ||
@@ -244,21 +230,6 @@ function SalesControls({ initial }: { initial: SalesData }) {
       setBusy(null);
       setConfirmation(null);
     }
-  }
-
-  function feedbackFor(card: "featured" | "visibility" | "pricing") {
-    return (
-      feedback?.card === card && (
-        <p
-          role={feedback.error ? "alert" : "status"}
-          className={
-            feedback.error ? "text-destructive" : "text-muted-foreground"
-          }
-        >
-          {feedback.text}
-        </p>
-      )
-    );
   }
 
   function refreshButton(card: "featured" | "visibility" | "pricing") {
@@ -292,9 +263,9 @@ function SalesControls({ initial }: { initial: SalesData }) {
             discount,
           });
         }} />
-      <FeaturedProductTable key={currentFeatured.map(({ id }) => id).join(",")} products={products} categories={categories}
+      <FeaturedProductTable key={currentFeatured.map(({ id }) => id).join(",")} products={products}
         adding={adding} closeAdd={() => setAdding(false)}
-        locked={locked} refresh={refreshButton("featured")} feedback={feedbackFor("featured")}
+        locked={locked} refresh={refreshButton("featured")}
         onChange={(featuredIds, action, count) => setConfirmation({
           kind: "featured", featuredIds, destructive: action === "remove",
           title: action === "add" ? "Add featured products?" : "Remove featured products?",
@@ -323,21 +294,20 @@ function SalesControls({ initial }: { initial: SalesData }) {
             id="collection-category"
             className={selectClass}
             value={category ?? ""}
-            disabled={locked || (!storefront.collectionCategory && categories.length === 0)}
-            onChange={(event) => setCategory(event.target.value || null)}
+            disabled={locked}
+            onChange={(event) => setCategory((event.target.value || null) as Category | null)}
           >
             <option value="">No category</option>
             {storefront.collectionCategory ? (
               <option value={storefront.collectionCategory}>
-                {catalogCategoryTitle(storefront.collectionCategory, categories)}
+                {categoryTitles[storefront.collectionCategory]}
               </option>
-            ) : categories.map(({ slug, title }) => <option key={slug} value={slug}>{title}</option>)}
+            ) : Object.values(Category).map((slug) => <option key={slug} value={slug}>{categoryTitles[slug]}</option>)}
           </select>
           {storefront.collectionCategory && !category && (
             <p className="text-muted-foreground">Save the removal before choosing another category.</p>
           )}
         </div>
-        {feedbackFor("visibility")}
         <div className="flex justify-end">
           <Button
             className="h-11 rounded-none bg-black px-4 text-white hover:bg-black/85 hover:text-white" style={{ boxShadow: catalogButtonShadow }}
@@ -347,7 +317,7 @@ function SalesControls({ initial }: { initial: SalesData }) {
                 kind: "visibility",
                 title: category ? "Save collection category?" : "Remove collection category?",
                 destructive: !category,
-                description: `Collection category: ${category ? catalogCategoryTitle(category, categories) : "None"}.`,
+                description: `Collection category: ${category ? categoryTitles[category] : "None"}.`,
               })
             }
           >

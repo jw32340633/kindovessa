@@ -8,7 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { catalogPageSizes, discountBadgeTypes, type ProductDiscountBadge } from "@/data/catalog-data";
-import { catalogButtonShadow } from "@/sections/catalog/category-table-card";
+import { catalogButtonShadow } from "@/sections/catalog/catalog-table-controls";
 import { CatalogTableEmptyRow, CatalogTableSearch } from "@/sections/catalog/catalog-table-controls";
 import { ProductSummary } from "./featured-product-table";
 

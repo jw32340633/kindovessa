@@ -9,14 +9,16 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { catalogCategoryTitle, catalogPageSizes } from "@/data/catalog-data";
+import { catalogPageSizes } from "@/data/catalog-data";
 import { CatalogTableEmptyRow, CatalogTableSearch } from "@/sections/catalog/catalog-table-controls";
-import { catalogButtonShadow } from "@/sections/catalog/category-table-card";
+import { catalogButtonShadow } from "@/sections/catalog/catalog-table-controls";
 
-type FeaturedProduct = { id: string; name: string; brand: string; category: string; imageUrl: string | null; isFeaturedProduct: boolean };
+import { categoryTitles, type Category } from "@/data/enum";
+
+type FeaturedProduct = { id: string; name: string; brand: string; category: Category; imageUrl: string | null; isFeaturedProduct: boolean };
 const cell = "border-r border-border px-4 py-3 last:border-r-0";
 const head = "h-12 border-y border-r border-border bg-muted/40 px-4 last:border-r-0";
-const pageSize = catalogPageSizes.categories;
+const pageSize = catalogPageSizes.featured;
 export const featuredProductLimit = 500;
 const shadow = { boxShadow: catalogButtonShadow };
 
@@ -36,15 +38,13 @@ export function ProductSummary({ product, caption }: { product: Pick<FeaturedPro
   );
 }
 
-export default function FeaturedProductTable({ products, categories, locked, adding, closeAdd, refresh, onChange, feedback }: {
+export default function FeaturedProductTable({ products, locked, adding, closeAdd, refresh, onChange }: {
   products: FeaturedProduct[];
-  categories: { slug: string; title: string }[];
   locked: boolean;
   adding: boolean;
   closeAdd: () => void;
   refresh: React.ReactNode;
   onChange: (ids: string[], action: "add" | "remove", count: number) => void;
-  feedback: React.ReactNode;
 }) {
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(0);
@@ -55,7 +55,7 @@ export default function FeaturedProductTable({ products, categories, locked, add
   const featured = products.filter((product) => product.isFeaturedProduct);
   const available = products.filter((product) => !product.isFeaturedProduct);
   const capacity = Math.max(0, featuredProductLimit - featured.length);
-  const categoryTitle = (product: FeaturedProduct) => catalogCategoryTitle(product.category, categories);
+  const categoryTitle = (product: FeaturedProduct) => categoryTitles[product.category];
   const matches = (product: FeaturedProduct, value: string) =>
     `${product.name} ${product.brand} ${categoryTitle(product)}`.toLowerCase().includes(value.trim().toLowerCase());
   const filtered = featured.filter((product) => matches(product, query)).sort((a, b) =>
@@ -96,7 +96,6 @@ export default function FeaturedProductTable({ products, categories, locked, add
             </div>
             <CatalogTableSearch label="Search featured products" placeholder="Search featured products..." value={query}
               disabled={!featured.length} onChange={(value) => { setQuery(value); setPage(0); }} />
-            {feedback}
           </div>
           <Table className="min-w-[25rem] table-fixed" aria-label="Featured products">
             <colgroup><col className="w-12" /><col className="w-[4.5rem]" /><col /><col className="w-24" /></colgroup>

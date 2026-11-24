@@ -13,7 +13,7 @@ test('rejects incomplete products, invalid categories, status and data URLs', ()
  assert.equal(productSchema.safeParse({ ...product, images: [] }).success, false);
  assert.equal(productSchema.safeParse({ ...product, price: '' }).success, false);
  assert.equal(productSchema.safeParse({ ...product, details: {} }).success, false);
- assert.equal(productSchema.safeParse({ ...product, category: 'new-catalog-category' }).success, true);
+ assert.equal(productSchema.safeParse({ ...product, category: 'new-catalog-category' }).success, false);
  assert.equal(productSchema.safeParse({ ...product, category: 'Invalid Category Link!' }).success, false);
  assert.equal(productSchema.safeParse({ ...product, status: 'active' }).success, false);
  assert.equal(productSchema.safeParse({ ...product, images: [{ url: 'data:image/png;base64,abc', alt: 'Test', name: '' }] }).success, false);

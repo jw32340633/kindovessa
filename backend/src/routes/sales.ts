@@ -4,7 +4,7 @@ import { z } from "zod";
 import { pool } from "../db/pool.js";
 
 import { cents } from "./products.js";
-import { catalogCategorySlug } from "./catalog-categories.js";
+import { Category } from "../data/enum.js";
 
 import { requireAdmin } from "../middleware/require-admin.js";
 
@@ -19,7 +19,7 @@ const badgeTypes = [
 const visibilitySchema = z
   .object({
     version: z.number().int().positive(),
-    collectionCategory: catalogCategorySlug.nullable(),
+    collectionCategory: z.enum(Category).nullable(),
     featuredProductIds: z.array(z.uuid().transform((id) => id.toLowerCase())).max(500),
   })
   .strict()
@@ -83,12 +83,9 @@ salesRouter.get("/", async (_request, response, next) => {
     const { rows } = await pool.query(
       `SELECT p.id, p.name, p.brand, p.category, p.price_cents, p.featured_product,
               p.discount_price_cents, p.discount_badge, p.is_discount_price, p.is_sale_tag,
-              p.sale_tag, p.version, s.version AS storefront_version, c.slug AS collection_category,
-              (SELECT url FROM catalog_images WHERE product_id = p.id ORDER BY sort_order LIMIT 1) AS image_url,
-              (SELECT COALESCE(json_agg(json_build_object('slug', slug, 'title', title) ORDER BY title), '[]'::json)
-               FROM catalog_categories WHERE title IS NOT NULL) AS categories
+              p.sale_tag, p.version, s.version AS storefront_version, s.collection_category,
+              (SELECT url FROM catalog_images WHERE product_id = p.id ORDER BY sort_order LIMIT 1) AS image_url
        FROM storefront_settings s
-       LEFT JOIN catalog_categories c ON c.is_collection_category
        LEFT JOIN catalog_products p ON true
        WHERE s.id = 1
        ORDER BY p.name, p.id`,
@@ -96,7 +93,6 @@ salesRouter.get("/", async (_request, response, next) => {
     const setting = rows[0];
     response.json({
       products: rows.filter((row) => row.id !== null).map(salesProduct),
-      categories: setting?.categories ?? [],
       storefront: {
         collectionCategory: setting?.collection_category ?? null,
         version: Number(setting?.storefront_version ?? 1),
@@ -131,7 +127,7 @@ salesRouter.put("/visibility", async (request, response, next) => {
       "INSERT INTO storefront_settings (id) VALUES (1) ON CONFLICT (id) DO NOTHING",
     );
     const locked = await client.query(
-      "SELECT version, (SELECT slug FROM catalog_categories WHERE is_collection_category) AS collection_category FROM storefront_settings WHERE id = 1 FOR UPDATE",
+      "SELECT version, collection_category FROM storefront_settings WHERE id = 1 FOR UPDATE",
     );
     if (Number(locked.rows[0]?.version) !== parsed.data.version) {
       await client.query("ROLLBACK");
@@ -166,19 +162,9 @@ salesRouter.put("/visibility", async (request, response, next) => {
       "UPDATE catalog_products SET featured_product = (id = ANY($1::uuid[])), version = version + 1, updated_at = now() WHERE featured_product IS DISTINCT FROM (id = ANY($1::uuid[]))",
       [parsed.data.featuredProductIds],
     );
-    if (currentCategory !== parsed.data.collectionCategory) {
-      const category = await client.query(
-        "UPDATE catalog_categories SET is_collection_category = ($1::text IS NOT NULL) WHERE slug = $2 AND ($1::text IS NULL OR title IS NOT NULL)",
-        [parsed.data.collectionCategory, parsed.data.collectionCategory ?? currentCategory],
-      );
-      if (category.rowCount !== 1) {
-        await client.query("ROLLBACK");
-        response.status(409).json({ error: { message: "The selected category is unavailable. Reload saved settings." } });
-        return;
-      }
-    }
     const updated = await client.query(
-      "UPDATE storefront_settings SET version = version + 1, updated_at = now() WHERE id = 1 RETURNING version",
+      "UPDATE storefront_settings SET collection_category = $1, version = version + 1, updated_at = now() WHERE id = 1 RETURNING version",
+      [parsed.data.collectionCategory],
     );
     await client.query("COMMIT");
     response.json({

@@ -1,32 +1,7 @@
-export const catalogPageSizes = { categories: 5, products: 10 } as const;
+import type { Category } from "./enum";
 
-export type CatalogCategory = {
-  id: string;
-  slug: string;
-  title: string;
-  coverUrl: string;
-  coverAssetId: string;
-  productCount: number;
-  createdAt: string;
-  version: number;
-};
+export const catalogPageSizes = { featured: 5, products: 10 } as const;
 
-export function catalogCategorySlug(title: string) {
-  return title
-    .trim()
-    .normalize("NFKD")
-    .replace(/\p{M}/gu, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "");
-}
-
-export function catalogCategoryTitle(
-  slug: string,
-  categories: readonly { slug: string; title: string }[],
-) {
-  return categories.find((category) => category.slug === slug)?.title ?? slug;
-}
 export type ProductMedia = {
   assetId: string;
   url: string;
@@ -80,7 +55,7 @@ export type CatalogProduct = {
   updatedAt?: string;
   name: string;
   brand: string;
-  category: string;
+  category: Category;
   slug: string;
   variants: ProductVariant[];
   images: ProductMedia[];

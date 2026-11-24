@@ -9,7 +9,7 @@ try {
   await client.query('BEGIN');
   await client.query("SELECT pg_advisory_xact_lock(46209812)");
   await client.query('CREATE TABLE IF NOT EXISTS schema_migrations (name text PRIMARY KEY, applied_at timestamptz NOT NULL DEFAULT now())');
-  for (const name of ['001_admin_auth.sql', '002_admin_username.sql', '003_repair_admin_username.sql', '004_products.sql', '005_product_sales_details.sql', '006_product_assets.sql', '007_product_price.sql', '008_product_options.sql', '009_remove_legacy_product_details.sql', '010_product_detail_images.sql', '011_product_leads_remove_sku.sql', '012_remove_product_status.sql', '013_sales_management.sql', '014_sales_category_and_price_rules.sql', '015_catalog_category_management.sql']) {
+  for (const name of ['001_admin_auth.sql', '002_admin_username.sql', '003_repair_admin_username.sql', '004_products.sql', '005_product_sales_details.sql', '006_product_assets.sql', '007_product_price.sql', '008_product_options.sql', '009_remove_legacy_product_details.sql', '010_product_detail_images.sql', '011_product_leads_remove_sku.sql', '012_remove_product_status.sql', '013_sales_management.sql', '014_sales_category_and_price_rules.sql', '015_catalog_category_management.sql', '016_fixed_catalog_categories.sql']) {
   if (!(await client.query('SELECT 1 FROM schema_migrations WHERE name=$1', [name])).rowCount) {
     await client.query(await readFile(new URL(`../../migrations/${name}`, import.meta.url), 'utf8'));
     await client.query('INSERT INTO schema_migrations(name) VALUES($1)', [name]);
@@ -17,5 +17,14 @@ try {
   }
   await client.query('COMMIT');
   console.log('Database migrations applied.');
-} catch { if (client) await client.query('ROLLBACK'); console.error('Migration failed; check database connectivity. No credentials were logged.'); process.exitCode = 1; }
+} catch (error) {
+  if (client) await client.query('ROLLBACK').catch(() => undefined);
+  const unsupportedCategory = error && typeof error === 'object' &&
+    'code' in error && error.code === '23514' && 'constraint' in error &&
+    (error.constraint === 'catalog_products_category_check' || error.constraint === 'storefront_settings_collection_category_check');
+  console.error(unsupportedCategory
+    ? 'Migration rolled back. A product or the storefront collection still uses a custom category.'
+    : 'Migration failed; check database connectivity. No credentials were logged.');
+  process.exitCode = 1;
+}
 finally { client?.release(); await pool.end(); }

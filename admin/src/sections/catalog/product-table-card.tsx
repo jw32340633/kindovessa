@@ -56,14 +56,14 @@ import {
 import ProductEditor from "@/sections/catalog/catalog-product-editor";
 
 import {
-  catalogCategoryTitle,
   catalogPageSizes,
   type CatalogProduct,
-  type CatalogCategory,
 } from "@/data/catalog-data";
 
 
 import { CatalogTableEmptyRow, CatalogTableSearch } from "./catalog-table-controls";
+
+import { Category, categoryTitles } from "@/data/enum";
 
 const features = tableFeatures({
   columnFilteringFeature,
@@ -87,12 +87,9 @@ const compactColumnIds = new Set([
   "actions",
 ]);
 
-export default function ProductTableCard({ categories, adding, closeAdd, refreshKey, onChanged }: {
-  categories: CatalogCategory[];
+export default function ProductTableCard({ adding, closeAdd }: {
   adding: boolean;
   closeAdd: () => void;
-  refreshKey: number;
-  onChanged: () => void;
 }) {
   "use no memo";
   const [productCount, setProductCount] = useState(0);
@@ -154,7 +151,7 @@ export default function ProductTableCard({ categories, adding, closeAdd, refresh
     }
     void load();
     return () => controller.abort();
-  }, [reload, refreshKey]);
+  }, [reload]);
   const [category, setCategory] = useState("");
   const [sorting, setSorting] = useState<SortingState>([]);
 
@@ -262,8 +259,8 @@ export default function ProductTableCard({ categories, adding, closeAdd, refresh
         accessorKey: "category",
         header: "Category",
         cell: ({ row }) => (
-          <span className="block truncate text-sm" title={catalogCategoryTitle(row.original.category, categories)}>
-            {catalogCategoryTitle(row.original.category, categories)}
+          <span className="block truncate text-sm" title={categoryTitles[row.original.category]}>
+            {categoryTitles[row.original.category]}
           </span>
         ),
       },
@@ -352,16 +349,14 @@ export default function ProductTableCard({ categories, adding, closeAdd, refresh
         ),
       },
     ],
-    [selectedIdSet, categories, loading],
+    [selectedIdSet, loading],
   );
-  const categoryOptions = [...new Set([...categories.map((item) => item.slug), ...products.map((item) => item.category)])];
-  const activeCategory = categories.length > 0 && categoryOptions.includes(category) ? category : "";
   const data = useMemo(
     () =>
       products.filter(
-        (product) => activeCategory === "" || product.category === activeCategory,
+        (product) => category === "" || product.category === category,
       ),
-    [products, activeCategory],
+    [products, category],
   );
   const table = useTable({
     features,
@@ -420,7 +415,6 @@ export default function ProductTableCard({ categories, adding, closeAdd, refresh
     setEditor(null);
     closeAdd();
     if (!existing) setProductCount((count) => count + 1);
-    onChanged();
     resetPage();
     setReload((value) => value + 1);
     toast.success(existing ? "Product updated." : "Product created.");
@@ -468,8 +462,7 @@ export default function ProductTableCard({ categories, adding, closeAdd, refresh
       setSelectedIds((current) => current.filter((id) => !deletedIds.has(id)));
       setDeleteTargets([]);
       setProductCount((count) => count - deletedIds.size);
-      onChanged();
-      resetPage();
+        resetPage();
       setReload((value) => value + 1);
       toast.success(
         deleteTargets.length === 1 ? "Product deleted." : "Products deleted.",
@@ -565,8 +558,7 @@ export default function ProductTableCard({ categories, adding, closeAdd, refresh
                     </Button>
                     <select
                       aria-label="Filter by category"
-                      disabled={categories.length === 0}
-                      value={activeCategory}
+                      value={category}
                       onChange={(event) => {
                         setCategory(event.target.value);
                         resetPage();
@@ -574,9 +566,9 @@ export default function ProductTableCard({ categories, adding, closeAdd, refresh
                       className="h-11 w-full min-w-0 rounded-none border bg-card px-3 text-sm disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto sm:max-w-60"
                     >
                       <option value="">All categories</option>
-                      {categoryOptions.map((value) => (
+                      {Object.values(Category).map((value) => (
                         <option key={value} value={value}>
-                          {catalogCategoryTitle(value, categories)}
+                          {categoryTitles[value]}
                         </option>
                       ))}
                     </select>
@@ -738,9 +730,7 @@ export default function ProductTableCard({ categories, adding, closeAdd, refresh
                         title={products.length ? "No products found" : "No products yet"}
                         description={products.length
                           ? "Try another search or clear your filters."
-                          : categories.length
-                            ? "Use Add Product to create your first product."
-                            : "Add a category first, then create your first product."} />
+                          : "Use Add Product to create your first product."} />
                     )}
                   </TableBody>
                 </Table>
@@ -791,7 +781,6 @@ export default function ProductTableCard({ categories, adding, closeAdd, refresh
       {(editor || adding) && (
         <ProductEditor
           product={editor?.product ?? null}
-          categories={categories}
           onClose={() => { setEditor(null); closeAdd(); }}
           onSave={save}
         />

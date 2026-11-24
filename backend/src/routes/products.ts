@@ -8,7 +8,7 @@ import { pool } from "../db/pool.js";
 import { requireAdmin } from "../middleware/require-admin.js";
 
 import { cleanupAssets } from "../lib/asset-cleanup.js";
-import { catalogCategorySlug } from "./catalog-categories.js";
+import { Category } from "../data/enum.js";
 
 const money = z.string().regex(/^(?:|\d{1,7}(?:\.\d{1,2})?)$/);
 const integer = z
@@ -73,7 +73,7 @@ export const productSchema = z
       .max(220)
       .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
     brand: z.string().trim().max(100),
-    category: catalogCategorySlug,
+    category: z.enum(Category),
     variants: z.array(variant).max(50),
     images: z
       .array(
@@ -293,7 +293,7 @@ catalogProductsRouter.get("/", async (request, response) => {
   const parsed = z
     .object({
       q: z.string().max(150).optional(),
-      category: catalogCategorySlug.optional(),
+      category: z.enum(Category).optional(),
     })
     .strict()
     .safeParse(request.query);
@@ -361,15 +361,10 @@ for (const method of ["post", "put"] as const)
       const client = await pool!.connect();
       try {
         await client.query("BEGIN");
-        const category = (await client.query(
-          "SELECT title FROM catalog_categories WHERE slug=$1 FOR KEY SHARE",
-          [data.category],
-        )).rows[0];
-        let existingCategory: string | undefined;
         if (update) {
           const existing = (
             await client.query(
-              "SELECT version, discount_price_cents, category FROM catalog_products WHERE id=$1 FOR UPDATE",
+              "SELECT version, discount_price_cents FROM catalog_products WHERE id=$1 FOR UPDATE",
               [id],
             )
           ).rows[0];
@@ -384,7 +379,6 @@ for (const method of ["post", "put"] as const)
             });
             return;
           }
-          existingCategory = existing.category;
           if (existing.discount_price_cents > 0 &&
               (priceCents === null || priceCents <= existing.discount_price_cents)) {
             await client.query("ROLLBACK");
@@ -393,11 +387,6 @@ for (const method of ["post", "put"] as const)
             });
             return;
           }
-        }
-        if (!category || (!category.title && existingCategory !== data.category)) {
-          await client.query("ROLLBACK");
-          response.status(400).json({ error: { message: "Choose an existing catalog category." } });
-          return;
         }
         const values = [
           data.name,
